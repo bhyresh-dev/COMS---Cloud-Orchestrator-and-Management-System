@@ -28,3 +28,6 @@ Thumbs.db
 
 # Gemini agent data
 .gemini/
+
+#config 
+config/serviceAccountKey.json

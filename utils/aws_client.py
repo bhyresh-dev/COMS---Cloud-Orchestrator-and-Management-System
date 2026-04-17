@@ -27,13 +27,31 @@ from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 # If AWS_ENDPOINT_URL is set → LocalStack mode; if blank/absent → real AWS
-_ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "").strip() or None
-REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
-ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", "test")
-SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
+_ENDPOINT  = os.getenv("AWS_ENDPOINT_URL", "").strip() or None
+REGION     = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
+SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
 
 # Expose mode so the UI can show which is active
 AWS_MODE = "LocalStack (Dev)" if _ENDPOINT else "Real AWS (Free Tier)"
+
+if not _ENDPOINT:
+    # Real AWS mode — credentials are mandatory, no hardcoded fallbacks
+    import sys
+    missing = [k for k, v in [
+        ("AWS_ACCESS_KEY_ID",     ACCESS_KEY),
+        ("AWS_SECRET_ACCESS_KEY", SECRET_KEY),
+        ("AWS_DEFAULT_REGION",    REGION),
+    ] if not v]
+    if missing:
+        sys.exit(
+            f"FATAL: Missing required AWS credentials in real AWS mode: "
+            f"{', '.join(missing)}. Add them to your .env file."
+        )
+else:
+    # LocalStack dev mode — use "test" defaults if env vars are absent
+    ACCESS_KEY = ACCESS_KEY or "test"
+    SECRET_KEY = SECRET_KEY or "test"
 
 
 def _get_client(service: str):

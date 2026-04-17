@@ -1,85 +1,105 @@
 """
-Simple YAML-based authentication for COMS.
-Uses streamlit-authenticator (free, no backend needed).
+COMS — Authentication module.
 
-Default credentials (change these!):
-  admin   / Admin@123
-  devlead / DevLead@123
-  dev     / Dev@1234
+Backed entirely by Firebase Auth + Firestore.
+Fails CLOSED: any exception during token verification → 401.
+No Streamlit dependency. No fallback to admin.
+
+Public API:
+  verify_token(id_token)  → user dict  or raises AuthError
+  require_role(user, min) → None       or raises AuthError(403)
+  get_user_role(uid)      → str        ("user" | "admin")
 """
-import yaml
-import bcrypt
-from pathlib import Path
-import streamlit_authenticator as stauth
+import sys
+from firebase_admin import auth as firebase_auth
+from utils.firebase_init import get_app
+from utils.firestore_db import get_user_by_uid, create_or_update_user
 
-USERS_FILE = Path(__file__).parent.parent / "config" / "users.yaml"
-
-
-def _hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-DEFAULT_CONFIG = {
-    "credentials": {
-        "usernames": {
-            "admin": {
-                "name": "Admin User",
-                "email": "admin@coms.ai",
-                "password": _hash("Admin@123"),
-                "role": "admin",
-            },
-            "devlead": {
-                "name": "Dev Lead",
-                "email": "devlead@coms.ai",
-                "password": _hash("DevLead@123"),
-                "role": "dev-lead",
-            },
-            "dev": {
-                "name": "Developer",
-                "email": "dev@coms.ai",
-                "password": _hash("Dev@1234"),
-                "role": "developer",
-            },
-        }
-    },
-    "cookie": {
-        "name": "coms_auth",
-        "key": "coms_secret_key_change_in_prod",
-        "expiry_days": 7,
-    },
+# Role hierarchy — higher = more privileged
+ROLE_RANK = {
+    "user":  1,
+    "admin": 2,
 }
 
 
-def _ensure_users_file():
-    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if not USERS_FILE.exists():
-        with open(USERS_FILE, "w") as f:
-            yaml.dump(DEFAULT_CONFIG, f, default_flow_style=False)
+class AuthError(Exception):
+    """Raised when authentication or authorisation fails."""
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail      = detail
+        super().__init__(detail)
 
 
-def load_auth_config() -> dict:
-    _ensure_users_file()
-    with open(USERS_FILE) as f:
-        return yaml.safe_load(f)
+def verify_token(id_token: str) -> dict:
+    """
+    Verify a Firebase ID token server-side.
+
+    Returns:
+        {
+            "uid":   str,
+            "email": str,
+            "name":  str,
+            "role":  str,   # from Firestore — never from the token claims
+        }
+
+    Raises:
+        AuthError(401) — token absent, expired, revoked, or malformed
+        AuthError(403) — token valid but account is deactivated
+    """
+    if not id_token:
+        raise AuthError(401, "Authorization token is required.")
+
+    # Ensure Firebase app is initialised — get_app() exits fatally if creds missing
+    get_app()
+
+    try:
+        decoded = firebase_auth.verify_id_token(id_token, check_revoked=True)
+    except firebase_auth.RevokedIdTokenError:
+        raise AuthError(401, "Token has been revoked. Please sign in again.")
+    except firebase_auth.ExpiredIdTokenError:
+        raise AuthError(401, "Token has expired. Please sign in again.")
+    except firebase_auth.InvalidIdTokenError:
+        raise AuthError(401, "Token is invalid.")
+    except Exception:
+        # Any other Firebase / network error → deny access, never degrade
+        raise AuthError(401, "Token verification failed.")
+
+    uid   = decoded["uid"]
+    email = decoded.get("email", "")
+    name  = decoded.get("name", "")
+
+    # Upsert user in Firestore (new accounts default to role "user")
+    user_doc = create_or_update_user(uid, email, name)
+    role     = user_doc.get("role", "user")
+
+    return {
+        "uid":   uid,
+        "email": email,
+        "name":  name,
+        "role":  role,
+    }
 
 
-def save_auth_config(config: dict):
-    with open(USERS_FILE, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
+def get_user_role(uid: str) -> str:
+    """Look up a user's role directly from Firestore. Returns 'user' if not found."""
+    doc = get_user_by_uid(uid)
+    if not doc:
+        return "user"
+    return doc.get("role", "user")
 
 
-def get_authenticator():
-    config = load_auth_config()
-    auth = stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
-    )
-    return auth, config
+def require_role(user: dict, minimum_role: str) -> None:
+    """
+    Assert that user meets or exceeds minimum_role.
 
-
-def get_user_role(username: str) -> str:
-    config = load_auth_config()
-    user = config["credentials"]["usernames"].get(username, {})
-    return user.get("role", "developer")
+    Raises:
+        AuthError(403) — insufficient privileges
+    """
+    user_rank     = ROLE_RANK.get(user.get("role", ""), 0)
+    required_rank = ROLE_RANK.get(minimum_role, 999)
+    if user_rank < required_rank:
+        raise AuthError(
+            403,
+            f"Forbidden. '{minimum_role}' role required. "
+            f"Your role: '{user.get('role', 'unknown')}'.",
+        )

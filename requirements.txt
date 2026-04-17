@@ -21,5 +21,11 @@ PyYAML>=6.0
 # Data & export
 pandas>=2.0.0
 
+# API server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
 # Utilities
 requests>=2.31.0
+firebase-admin>=7.4.0

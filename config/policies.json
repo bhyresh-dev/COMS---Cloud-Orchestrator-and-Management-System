@@ -39,15 +39,19 @@
         }
     },
     "rbac_roles": {
+        "user": {
+            "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
+            "auto_approve_limit_usd": 0
+        },
+        "admin": {
+            "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
+            "auto_approve_limit_usd": 0
+        },
         "developer": {
             "can_request": ["s3", "ec2", "lambda", "sns", "logs"],
             "auto_approve_limit_usd": 0
         },
         "dev-lead": {
-            "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
-            "auto_approve_limit_usd": 0
-        },
-        "admin": {
             "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
             "auto_approve_limit_usd": 0
         }
