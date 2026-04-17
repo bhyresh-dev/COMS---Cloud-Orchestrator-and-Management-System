@@ -87,7 +87,7 @@ export default function Layout({ children }) {
     } catch { /* silent */ }
   }, [getToken]);
 
-  useEffect(() => { loadCounts(); }, [loadCounts]);
+  useEffect(() => { loadCounts(); }, [loadCounts, pathname]);
 
   function handleNewChat() {
     newSession();

@@ -48,6 +48,7 @@ from utils.firestore_db import (
     get_resources,
     get_all_users,
     get_user_resource_counts,
+    update_user_name,
     get_pending_approvals,
     get_all_approvals,
     get_approvals_by_status,
@@ -170,6 +171,16 @@ def health():
 
 
 # ── Auth ──────────────────────────────────────────────────────
+
+class UpdateProfileRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+
+@app.patch("/api/auth/me", tags=["Auth"])
+def update_profile(body: UpdateProfileRequest, user: dict = Depends(get_current_user)):
+    """Update the caller's display name."""
+    update_user_name(user["uid"], body.name.strip())
+    return {"uid": user["uid"], "email": user["email"], "name": body.name.strip(), "role": user["role"]}
+
 
 @app.post("/api/auth/me", tags=["Auth"])
 def auth_me(user: dict = Depends(get_current_user)):

@@ -431,6 +431,11 @@ def create_or_update_user(
         return data
 
 
+def update_user_name(uid: str, name: str) -> None:
+    db  = get_db()
+    db.collection(_USERS).document(uid).update({"displayName": name})
+
+
 def get_all_users() -> list[dict]:
     db   = get_db()
     docs = db.collection(_USERS).order_by("createdAt").stream()
