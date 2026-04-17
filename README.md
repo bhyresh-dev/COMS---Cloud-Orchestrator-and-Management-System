@@ -59,11 +59,12 @@ Firestore   Firestore
 - **Multi-turn clarification** — for ambiguous requests (e.g. S3 bucket missing region), the AI asks follow-up questions in the same chat thread
 - **Risk-tiered execution** — low-risk requests auto-execute; high-risk (IAM, EC2, Lambda) route to admin approval queue
 - **Auto-filled defaults** — high-risk resource parameters are auto-populated with safe defaults rather than blocking the user with questions
-- **Chat history** — all conversations persist in localStorage, accessible from the sidebar like ChatGPT/Gemini
-- **Resource inventory** — provisioned resources (S3, IAM, EC2, Lambda, SNS, CloudWatch) visible in the sidebar with live counts; pending approvals shown with amber badge
-- **Admin approval workflow** — admins approve/reject with optional remarks; full request details visible in modal
+- **Chat history** — all conversations persist in localStorage, accessible from the sidebar like ChatGPT/Gemini; sessions can be renamed, revisited, or deleted
+- **Resource inventory** — provisioned resources (S3, IAM, EC2, Lambda, SNS, CloudWatch) visible in the sidebar with live counts; pending resources shown with amber badge before approval
+- **Admin approval workflow** — admins approve/reject with optional remarks; full request details visible in modal; filter by status (pending/approved/rejected)
 - **Role-based access control** — `user` and `admin` roles; admin emails configured in `config/admins.py`
-- **Append-only audit log** — every action logged to Firestore; admin view grouped by session; non-admins redirected
+- **Append-only audit log** — admin-only; every action logged to Firestore; entries grouped by session with collapsible view; non-admins redirected
+- **Editable profile** — users can update their display name from the profile page; reflected instantly in sidebar and avatar
 - **Firebase Authentication** — Google Sign-In, server-side ID token verification on every request
 
 ### Supported AWS Resources
@@ -99,37 +100,44 @@ Firestore   Firestore
 COAS/
 ├── agents/
 │   ├── orchestrator.py      # Master Agent — pipeline coordinator
-│   ├── nlp_agent.py         # LLM intent parser (Groq + Gemini)
+│   ├── nlp_agent.py         # LLM intent parser (Groq + Gemini fallback)
 │   ├── policy_engine.py     # RBAC + resource limit enforcement
-│   ├── risk_classifier.py   # Risk scoring + auto-defaults
+│   ├── risk_classifier.py   # Risk scoring + auto-defaults injection
 │   └── executor.py          # AWS boto3 execution layer
 ├── config/
 │   ├── admins.py            # Admin email whitelist
 │   ├── policies.json        # Per-role resource limits and permissions
+│   ├── risk_rules.json      # Risk scoring rules per intent
 │   └── serviceAccountKey.json  # Firebase service account (not committed)
 ├── utils/
 │   ├── firestore_db.py      # All Firestore read/write operations
-│   ├── auth.py              # Firebase token verification
+│   ├── auth.py              # Firebase token verification + role resolution
 │   ├── firebase_init.py     # Firebase Admin SDK initialization
+│   ├── aws_client.py        # boto3 client factory (supports LocalStack)
 │   └── rate_limiter.py      # Request rate limiting
 ├── frontend/
 │   └── src/
 │       ├── pages/
-│       │   ├── Dashboard.jsx       # Main chat interface
-│       │   ├── ResourcesPage.jsx   # Resource inventory with detail panel
-│       │   ├── Approvals.jsx       # Approval queue management
+│       │   ├── Dashboard.jsx       # Conversational chat interface
+│       │   ├── ResourcesPage.jsx   # Resource inventory + detail panel
+│       │   ├── Approvals.jsx       # Approval queue with status filters
 │       │   ├── AuditLog.jsx        # Admin-only session-grouped audit log
-│       │   ├── AdminDashboard.jsx  # User management
-│       │   ├── Security.jsx        # Security documentation
-│       │   └── Profile.jsx         # User profile + sign out
+│       │   ├── AdminDashboard.jsx  # User management (admin only)
+│       │   ├── Security.jsx        # Security documentation page
+│       │   └── Profile.jsx         # User profile + editable name + sign out
 │       ├── components/
-│       │   └── Layout.jsx          # Sidebar with chat history + resource nav
-│       └── contexts/
-│           ├── AuthContext.jsx     # Firebase auth state
-│           └── ChatContext.jsx     # Persistent chat session management
+│       │   ├── Layout.jsx          # Collapsible sidebar with chat history + resources
+│       │   └── ProtectedRoute.jsx  # Auth guard for routes
+│       ├── contexts/
+│       │   ├── AuthContext.jsx     # Firebase auth state + profile
+│       │   └── ChatContext.jsx     # localStorage-backed chat session management
+│       ├── api.js                  # Fetch wrapper with Firebase auth headers
+│       └── firebase.js             # Firebase web SDK initialization
 ├── server.py                # FastAPI app + all API routes
+├── requirements.txt         # Python dependencies
 └── tests/
-    └── security_test.py     # Security layer tests
+    ├── security_test.py     # Auth + RBAC security tests
+    └── test_suite.py        # Integration test suite
 ```
 
 ---
@@ -248,6 +256,7 @@ Create an IAM role named `coms-lambda-execution-role`:
 |---|---|---|---|
 | GET | `/health` | None | Health check |
 | POST | `/api/auth/me` | user | Verify token, return profile |
+| PATCH | `/api/auth/me` | user | Update display name |
 | POST | `/api/nlp/process` | user | Full AI orchestration pipeline |
 | GET | `/api/resources` | user | List active + pending resources |
 | GET | `/api/buckets` | user | List S3 buckets |
@@ -255,11 +264,11 @@ Create an IAM role named `coms-lambda-execution-role`:
 | GET | `/api/approvals` | user | List approvals (filtered by status) |
 | POST | `/api/approvals/{id}/approve` | admin | Approve and execute |
 | POST | `/api/approvals/{id}/reject` | admin | Reject with reason |
-| GET | `/api/audit` | user | Audit log (own entries only) |
+| GET | `/api/audit` | user | Audit log (own entries; admin sees all) |
 | GET | `/api/admin/users` | admin | All users with resource counts |
 | GET | `/api/admin/buckets` | admin | All buckets across all users |
-| GET | `/api/admin/audit` | admin | Full audit log |
-| GET | `/api/admin/stats` | admin | Aggregate stats |
+| GET | `/api/admin/audit` | admin | Full audit log with stats |
+| GET | `/api/admin/stats` | admin | Aggregate resource and audit stats |
 
 ---
 
@@ -351,3 +360,26 @@ service cloud.firestore {
 ```
 
 All Firestore operations run server-side via Admin SDK, bypassing these rules.
+
+---
+
+## Changelog
+
+### v1.1
+- Expanded AI scope from S3-only to all 6 AWS services (IAM, EC2, Lambda, SNS, CloudWatch)
+- Multi-turn conversational clarification for S3 requests with missing parameters
+- Auto-filled safe defaults for high-risk resources (no unnecessary prompting)
+- Chat sessions persisted in localStorage with ChatGPT-style sidebar history
+- Pending resources (awaiting approval) now appear in resource inventory with amber badge
+- Admin-only audit log with entries grouped by 15-minute session windows
+- Editable display name on profile page (`PATCH /api/auth/me`)
+- Sidebar: logo links to home, truncated username, admin-gated nav items, resource counts refresh on navigation
+- Removed legacy Streamlit layer (`app.py`, `styles.py`, `mock_data.py`, SQLite database, session shim)
+
+### v1.0
+- Initial release: FastAPI backend, React + Tailwind frontend, Firebase Auth, Firestore persistence
+- Multi-agent pipeline: NLP → Policy → Risk → Executor
+- S3 bucket creation with real AWS via boto3
+- RBAC with `user` and `admin` roles
+- Approval queue for high-risk operations
+- Full audit log
