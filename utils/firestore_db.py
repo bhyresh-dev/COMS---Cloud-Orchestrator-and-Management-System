@@ -128,7 +128,42 @@ def add_approval(
     })
     # ref is (update_time, DocumentReference)
     doc_ref = ref[1] if isinstance(ref, tuple) else ref
+
+    # Also record resource in pending state so it shows in resource lists
+    _record_pending_resource(parsed_request, user_role, user_id, user_email)
+
     return doc_ref.id
+
+
+_INTENT_RESOURCE_MAP = {
+    "create_s3_bucket":      ("S3 Bucket",            "bucket_name",     "ap-south-1"),
+    "create_iam_role":       ("IAM Role",              "role_name",       "global"),
+    "launch_ec2_instance":   ("EC2 Instance",          "instance_name",   "ap-south-1"),
+    "create_lambda_function":("Lambda Function",       "function_name",   "ap-south-1"),
+    "create_sns_topic":      ("SNS Topic",             "topic_name",      "ap-south-1"),
+    "create_log_group":      ("CloudWatch Log Group",  "log_group_name",  "ap-south-1"),
+}
+
+def _record_pending_resource(parsed_request: dict, user_role: str, user_id: str | None, user_email: str | None) -> None:
+    intent = parsed_request.get("intent", "")
+    if intent not in _INTENT_RESOURCE_MAP:
+        return
+    resource_type, name_key, default_region = _INTENT_RESOURCE_MAP[intent]
+    params = parsed_request.get("parameters", {})
+    name   = params.get(name_key) or params.get("name", "unknown")
+    region = params.get("region", default_region)
+    db  = get_db()
+    db.collection(_RESOURCES).add({
+        "timestamp":      _now(),
+        "resourceType":   resource_type,
+        "resourceName":   name,
+        "region":         region or "global",
+        "details":        params,
+        "status":         "pending",
+        "userId":         user_id    or "",
+        "userEmail":      user_email or "",
+        "createdByRole":  user_role  or "",
+    })
 
 
 def get_pending_approvals() -> list[dict]:

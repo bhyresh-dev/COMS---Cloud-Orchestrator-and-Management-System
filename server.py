@@ -362,10 +362,9 @@ def list_resources(user: dict = Depends(get_current_user)):
     """Return all active resources owned by the caller."""
     uid  = user["uid"]
     role = user["role"]
-    resources = get_resources(
-        status="active",
-        user_id=None if role == "admin" else uid,
-    )
+    active  = get_resources(status="active",  user_id=None if role == "admin" else uid)
+    pending = get_resources(status="pending", user_id=None if role == "admin" else uid)
+    resources = active + pending
     return {"resources": resources, "count": len(resources)}
 
 

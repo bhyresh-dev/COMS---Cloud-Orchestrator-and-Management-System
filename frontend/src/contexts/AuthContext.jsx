@@ -41,8 +41,9 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will fire and call loadProfile
     } catch (err) {
+      // Ignore popup closed by user — not an error worth showing
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
       setError(err.message);
     }
   }
