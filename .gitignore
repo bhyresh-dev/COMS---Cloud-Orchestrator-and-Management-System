@@ -1,0 +1,30 @@
+# Virtual environment
+venv/
+
+# Environment variables (secrets)
+.env
+.env.example
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# SQLite databases
+*.db
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Gemini agent data
+.gemini/

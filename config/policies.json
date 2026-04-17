@@ -1,0 +1,62 @@
+{
+    "allowed_regions": [
+        "ap-south-1",
+        "us-east-1",
+        "eu-west-1",
+        "us-west-2"
+    ],
+    "max_monthly_budget_usd": 0,
+    "resource_limits": {
+        "s3": {
+            "max_buckets_per_team": 10,
+            "max_size_gb": 5
+        },
+        "ec2": {
+            "allowed_instance_types": [
+                "t2.micro",
+                "t3.micro"
+            ],
+            "max_instances": 3
+        },
+        "iam": {
+            "max_roles_per_team": 10
+        },
+        "lambda": {
+            "max_functions": 20,
+            "allowed_runtimes": [
+                "python3.12",
+                "python3.11",
+                "nodejs20.x",
+                "nodejs18.x",
+                "java21"
+            ]
+        },
+        "sns": {
+            "max_topics": 10
+        },
+        "logs": {
+            "max_log_groups": 20
+        }
+    },
+    "rbac_roles": {
+        "developer": {
+            "can_request": ["s3", "ec2", "lambda", "sns", "logs"],
+            "auto_approve_limit_usd": 0
+        },
+        "dev-lead": {
+            "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
+            "auto_approve_limit_usd": 0
+        },
+        "admin": {
+            "can_request": ["s3", "ec2", "iam", "lambda", "sns", "logs"],
+            "auto_approve_limit_usd": 0
+        }
+    },
+    "naming_convention": "{team}-{service}-{purpose}-{env}",
+    "mandatory_tags": [
+        "team",
+        "purpose",
+        "environment"
+    ],
+    "free_tier_note": "All resource limits set to AWS Free Tier bounds (S3: 5GB, EC2: t2/t3.micro only, Lambda: always free)"
+}

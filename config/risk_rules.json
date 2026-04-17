@@ -1,0 +1,35 @@
+{
+    "risk_levels": {
+        "low": {
+            "description": "Routine, read-only or safe create — auto-approved",
+            "actions": [
+                "create_s3_bucket",
+                "list_s3_buckets",
+                "describe_ec2_instances",
+                "list_iam_roles",
+                "create_lambda_function",
+                "list_lambda_functions",
+                "invoke_lambda_function",
+                "create_sns_topic",
+                "list_sns_topics",
+                "create_log_group",
+                "list_log_groups"
+            ],
+            "approval_required": false
+        },
+        "high": {
+            "description": "Destructive or sensitive — needs admin approval",
+            "actions": [
+                "create_iam_role",
+                "delete_iam_role",
+                "launch_ec2_instance",
+                "terminate_ec2_instance",
+                "delete_s3_bucket",
+                "delete_lambda_function",
+                "delete_sns_topic"
+            ],
+            "approval_required": true,
+            "approvers": ["admin", "dev-lead"]
+        }
+    }
+}
