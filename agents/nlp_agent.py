@@ -35,7 +35,7 @@ REGION MAPPING — always resolve natural language to AWS region codes. Be gener
   Singapore / AP Southeast / Asia Southeast / Southeast Asia     → "ap-southeast-1"
   Tokyo / Japan / AP Northeast / Asia Northeast                  → "ap-northeast-1"
   "US South" does NOT exist in AWS — treat it as "us-east-1" and note the correction.
-  If no region mentioned at all, default to "ap-south-1".
+  If no region mentioned at all for S3 buckets, do NOT default — mark region as missing and ask for it.
 
 RESPONSE FORMAT:
 {

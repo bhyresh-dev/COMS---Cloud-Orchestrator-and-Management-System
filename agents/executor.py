@@ -161,9 +161,10 @@ def _build_tags(user_role: str, intent: str, extra: dict = None) -> list:
 
 def _create_s3_bucket(params: dict, user_role: str, user_id: str | None = None) -> dict:
     from utils.aws_client import REGION as DEFAULT_REGION
-    s3     = get_s3_client()
     name   = params.get("bucket_name") or f"coms-{int(time.time())}"
     region = params.get("region") or DEFAULT_REGION or "ap-south-1"
+
+    s3 = get_s3_client(region=region)
 
     kwargs = {"Bucket": name}
     if region != "us-east-1":
@@ -207,7 +208,8 @@ def _list_s3_buckets(user_id: str | None = None) -> dict:
 
 
 def _delete_s3_bucket(params: dict) -> dict:
-    s3   = get_s3_client()
+    from utils.aws_client import REGION as DEFAULT_REGION
+    s3   = get_s3_client(region=params.get("region") or DEFAULT_REGION or "ap-south-1")
     name = params.get("bucket_name", "")
     if not name:
         return {"success": False, "error": "bucket_name is required."}
@@ -220,10 +222,10 @@ def _delete_s3_bucket(params: dict) -> dict:
 
 def _launch_ec2_instance(params: dict, user_role: str, user_id: str | None = None) -> dict:
     from utils.aws_client import REGION as DEFAULT_REGION
-    ec2    = get_ec2_client()
+    region = params.get("region") or DEFAULT_REGION or "ap-south-1"
+    ec2    = get_ec2_client(region=region)
     itype  = params.get("instance_type") or "t2.micro"
     count  = int(params.get("count") or 1)
-    region = params.get("region") or DEFAULT_REGION or "ap-south-1"
 
     tags     = _build_tags(user_role, "launch_ec2_instance",
                            {"Team": params.get("team"), "Purpose": params.get("purpose")})
@@ -321,7 +323,8 @@ def _delete_iam_role(params: dict) -> dict:
 # ======================== LAMBDA ========================
 
 def _create_lambda_function(params: dict, user_role: str, user_id: str | None = None) -> dict:
-    lmb         = get_lambda_client()
+    from utils.aws_client import REGION as DEFAULT_REGION
+    lmb         = get_lambda_client(region=params.get("region") or DEFAULT_REGION or "ap-south-1")
     name        = params.get("function_name") or f"coms-fn-{int(time.time())}"
     runtime     = params.get("runtime") or "python3.12"
     handler     = params.get("handler") or "index.handler"
@@ -389,7 +392,8 @@ def _invoke_lambda_function(params: dict) -> dict:
 # ======================== SNS ========================
 
 def _create_sns_topic(params: dict, user_role: str, user_id: str | None = None) -> dict:
-    sns  = get_sns_client()
+    from utils.aws_client import REGION as DEFAULT_REGION
+    sns  = get_sns_client(region=params.get("region") or DEFAULT_REGION or "ap-south-1")
     name = params.get("topic_name") or f"coms-topic-{int(time.time())}"
     tags = _build_tags(user_role, "create_sns_topic")
     resp = sns.create_topic(Name=name, Tags=tags)
@@ -430,7 +434,8 @@ def _delete_sns_topic(params: dict) -> dict:
 # ======================== CLOUDWATCH LOGS ========================
 
 def _create_log_group(params: dict, user_role: str, user_id: str | None = None) -> dict:
-    logs = get_logs_client()
+    from utils.aws_client import REGION as DEFAULT_REGION
+    logs = get_logs_client(region=params.get("region") or DEFAULT_REGION or "ap-south-1")
     name = params.get("log_group_name") or f"/coms/{int(time.time())}"
     tags = {t["Key"]: t["Value"] for t in _build_tags(user_role, "create_log_group")}
     logs.create_log_group(logGroupName=name, tags=tags)

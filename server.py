@@ -18,7 +18,8 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from google.api_core.exceptions import FailedPrecondition, GoogleAPICallError
 from pydantic import BaseModel, Field
 
@@ -261,7 +262,7 @@ def nlp_process(body: NLPRequest, user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=403,
             detail=(
-                f"AI automation is scoped strictly to S3 bucket creation. "
+                f"AI automation is scoped to resource creation only. "
                 f"Parsed intent '{parsed_intent}' is not permitted through this endpoint. "
                 "Use the explicit resource endpoints for other operations."
             ),
@@ -516,3 +517,17 @@ def admin_stats(admin: dict = Depends(require_admin)):
         "resource_counts": counts,
         "audit_summary": audit,
     }
+
+
+# ── Serve React frontend ──────────────────────────────────────
+_FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+
+if os.path.isdir(_FRONTEND_DIST):
+    print(f"Serving frontend from {_FRONTEND_DIST}")
+    app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIST, "assets")), name="assets")
+else:
+    print(f"WARNING: frontend/dist not found at {_FRONTEND_DIST} — frontend will not be served")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        return FileResponse(os.path.join(_FRONTEND_DIST, "index.html"))

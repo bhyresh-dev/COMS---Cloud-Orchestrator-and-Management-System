@@ -54,9 +54,9 @@ else:
     SECRET_KEY = SECRET_KEY or "test"
 
 
-def _get_client(service: str):
+def _get_client(service: str, region: str = None):
     kwargs = dict(
-        region_name=REGION,
+        region_name=region or REGION,
         aws_access_key_id=ACCESS_KEY,
         aws_secret_access_key=SECRET_KEY,
     )
@@ -65,9 +65,9 @@ def _get_client(service: str):
     return boto3.client(service, **kwargs)
 
 
-def get_s3_client():       return _get_client("s3")
-def get_ec2_client():      return _get_client("ec2")
-def get_iam_client():      return _get_client("iam")
-def get_lambda_client():   return _get_client("lambda")
-def get_sns_client():      return _get_client("sns")
-def get_logs_client():     return _get_client("logs")       # CloudWatch Logs
+def get_s3_client(region: str = None):      return _get_client("s3",     region=region)
+def get_ec2_client(region: str = None):     return _get_client("ec2",    region=region)
+def get_iam_client(region: str = None):     return _get_client("iam",    region=region)
+def get_lambda_client(region: str = None):  return _get_client("lambda", region=region)
+def get_sns_client(region: str = None):     return _get_client("sns",    region=region)
+def get_logs_client(region: str = None):    return _get_client("logs",   region=region)

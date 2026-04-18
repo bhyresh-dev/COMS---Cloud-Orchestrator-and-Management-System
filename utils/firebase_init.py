@@ -16,6 +16,31 @@ _app: firebase_admin.App | None = None
 _db = None
 
 
+def _get_firebase_credentials() -> credentials.Certificate:
+    json_string = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if json_string:
+        print("Loading Firebase credentials from environment variable (JSON string)...")
+        try:
+            return credentials.Certificate(json.loads(json_string))
+        except json.JSONDecodeError as exc:
+            sys.exit(f"FATAL: FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON: {exc}")
+
+    key_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY")
+    if key_path:
+        print("Loading Firebase credentials from file path...")
+        if not os.path.isfile(key_path):
+            sys.exit(
+                f"FATAL: FIREBASE_SERVICE_ACCOUNT_KEY points to a file that does not exist: {key_path}"
+            )
+        return credentials.Certificate(key_path)
+
+    sys.exit(
+        "FATAL: Firebase credentials not configured. Set one of:\n"
+        "  FIREBASE_SERVICE_ACCOUNT_JSON — full service account JSON as a single-line string (Docker)\n"
+        "  FIREBASE_SERVICE_ACCOUNT_KEY  — path to service account JSON file (local dev)"
+    )
+
+
 def _init() -> None:
     global _app, _db
 
@@ -26,32 +51,7 @@ def _init() -> None:
             "Add it to your .env file."
         )
 
-    sa_key_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY")
-    sa_key_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-
-    if sa_key_path:
-        if not os.path.isfile(sa_key_path):
-            sys.exit(
-                f"FATAL: FIREBASE_SERVICE_ACCOUNT_KEY points to a file that "
-                f"does not exist: {sa_key_path}"
-            )
-        cred = credentials.Certificate(sa_key_path)
-
-    elif sa_key_json:
-        try:
-            key_data = json.loads(sa_key_json)
-        except json.JSONDecodeError as exc:
-            sys.exit(
-                f"FATAL: FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON: {exc}"
-            )
-        cred = credentials.Certificate(key_data)
-
-    else:
-        sys.exit(
-            "FATAL: Firebase credentials not configured. Set one of:\n"
-            "  FIREBASE_SERVICE_ACCOUNT_KEY  — path to service account JSON file\n"
-            "  FIREBASE_SERVICE_ACCOUNT_JSON — full service account JSON as a string"
-        )
+    cred = _get_firebase_credentials()
 
     try:
         _app = firebase_admin.initialize_app(cred, {"projectId": project_id})

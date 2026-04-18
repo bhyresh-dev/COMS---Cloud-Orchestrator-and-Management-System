@@ -97,7 +97,7 @@ def validate_request(parsed_request: dict, user_role: str = "user",
             )
 
     # ── 4. Live resource-count limits ─────────────────────────
-    if not violations and intent.startswith("create_") or intent.startswith("launch_"):
+    if not violations and (intent.startswith("create_") or intent.startswith("launch_")):
         _check_live_limits(service, intent, limits, user_id, user_role, violations)
 
     # ── 5. Missing tags (warning only) ───────────────────────
