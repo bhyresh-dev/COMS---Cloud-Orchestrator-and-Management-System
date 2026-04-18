@@ -207,38 +207,6 @@ function ChatMessage({ msg }) {
         )}
         <p className="text-white/85 text-sm leading-relaxed">{msg.text}</p>
 
-        {/* ── Cost Estimate ─────────────────────────────── */}
-        {data?.cost_estimate && (
-          <div className="bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
-                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-white/30 uppercase tracking-wider mb-0.5">Estimated Cost</p>
-              <p className="text-sm font-semibold text-white/85">
-                {data.cost_estimate.monthly_usd === 0
-                  ? 'Free'
-                  : data.cost_estimate.monthly_usd != null
-                    ? `~$${data.cost_estimate.monthly_usd.toFixed(2)} / month`
-                    : 'Calculating…'}
-                {data.cost_estimate.hourly_usd != null && (
-                  <span className="text-white/35 font-normal text-xs ml-2">(${data.cost_estimate.hourly_usd}/hr)</span>
-                )}
-              </p>
-              <p className="text-[11px] text-white/35 mt-0.5">{data.cost_estimate.basis}</p>
-            </div>
-            {data.cost_estimate.free_tier && (
-              <div className="flex-shrink-0 text-right">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400/80">
-                  Free Tier eligible
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ── Pending approval card ─────────────────────── */}
         {status === 'pending_approval' && data?.risk_result && (
           <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3 space-y-1.5">

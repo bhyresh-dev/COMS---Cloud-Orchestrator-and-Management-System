@@ -161,7 +161,6 @@ class NLPResponse(BaseModel):
     warnings: list = []
     approval_id: str | None = None
     risk_result: dict = {}
-    cost_estimate: dict | None = None
     explain: list = []
     conversation_history: list = []
 
@@ -289,7 +288,6 @@ def nlp_process(body: NLPRequest, user: dict = Depends(get_current_user)):
         warnings=result.get("warnings", []),
         approval_id=str(result["approval_id"]) if result.get("approval_id") else None,
         risk_result=result.get("risk_result", {}),
-        cost_estimate=result.get("cost_estimate"),
         explain=result.get("explain", []),
         conversation_history=updated_history,
     )

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { useResources } from '../contexts/ResourceContext';
+import logoImg from '../assets/logo.png';
 
 const Icon = ({ d, size = 16, fill = 'none', stroke = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -106,19 +107,14 @@ export default function Layout({ children }) {
         <div className="h-14 flex items-center justify-between px-4 flex-shrink-0">
           {!collapsed && (
             <Link to="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-900/40 group-hover:shadow-violet-700/50 transition-shadow">
-                <ZapIcon />
+              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-lg shadow-blue-900/40 group-hover:shadow-blue-700/50 transition-shadow">
+                <img src={logoImg} alt="COMS" className="w-full h-full object-cover scale-[1.45] object-center" />
               </div>
               <span className="text-white font-semibold text-sm tracking-tight group-hover:text-white/85 transition-colors">COMS</span>
             </Link>
           )}
           {collapsed && (
-            <div className="flex items-center justify-between w-full">
-              <Link to="/dashboard">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                  <ZapIcon />
-                </div>
-              </Link>
+            <div className="flex items-center justify-center w-full">
               <button onClick={() => setCollapsed(false)}
                 className="text-white/25 hover:text-white/60 transition-colors">
                 <MenuIcon />

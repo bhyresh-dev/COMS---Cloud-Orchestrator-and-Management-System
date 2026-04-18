@@ -14,7 +14,6 @@ from utils.firestore_db import (
     approve_approval, reject_approval, get_all_approvals,
     activate_pending_resource,
 )
-from utils.cost_estimator import estimate_cost
 
 # Fuzzy normalization: map common LLM hallucinations to correct intent strings
 _INTENT_MAP = {
@@ -268,9 +267,6 @@ class MasterOrchestrator:
             "status": "warning" if risk_result["approval_required"] else "success",
         })
 
-        # ── COST ESTIMATE ───────────────────────────────────
-        cost = estimate_cost(intent, params)
-
         # ── STAGE 4: EXECUTE or ESCALATE ───────────────────
         if risk_result["approval_required"]:
             aid = add_approval(parsed, risk_result, self.user_role, user_id=self.user_id)
@@ -287,7 +283,6 @@ class MasterOrchestrator:
                 "message": f"This is a {risk_result['tier']} action. Requires admin approval.",
                 "approval_id": aid,
                 "risk_result": risk_result,
-                "cost_estimate": cost,
                 "explain": explain,
                 "pipeline_stages": self.pipeline_stages,
                 "total_time_seconds": round(time.time() - t_start, 2),
@@ -311,7 +306,6 @@ class MasterOrchestrator:
                 "status": "executed" if exec_result.get("success") else "error",
                 "message": exec_result.get("message", exec_result.get("error", "Execution failed.")),
                 "resource": exec_result.get("resource", {}),
-                "cost_estimate": cost,
                 "explain": explain,
                 "pipeline_stages": self.pipeline_stages,
                 "total_time_seconds": round(time.time() - t_start, 2),
