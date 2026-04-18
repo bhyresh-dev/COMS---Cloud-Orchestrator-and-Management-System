@@ -531,3 +531,7 @@ else:
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
         return FileResponse(os.path.join(_FRONTEND_DIST, "index.html"))
+
+@app.get("/")
+async def root():
+    return {"message": "COMS Orchestrator API is live and running!"}
