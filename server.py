@@ -525,12 +525,12 @@ _FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if os.path.isdir(_FRONTEND_DIST):
     print(f"Serving frontend from {_FRONTEND_DIST}")
     app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIST, "assets")), name="assets")
-else:
-    print(f"WARNING: frontend/dist not found at {_FRONTEND_DIST} — frontend will not be served")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
         return FileResponse(os.path.join(_FRONTEND_DIST, "index.html"))
+else:
+    print(f"WARNING: frontend/dist not found at {_FRONTEND_DIST} — frontend will not be served")
 
 @app.get("/api/health")
 async def health_check():
