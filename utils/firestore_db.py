@@ -89,8 +89,14 @@ def get_recent_logs(limit: int = 10) -> list[dict]:
 
 
 def get_audit_stats() -> dict:
-    db   = get_db()
-    docs = db.collection(_AUDIT).stream()
+    db         = get_db()
+    now        = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    docs = (
+        db.collection(_AUDIT)
+        .where(filter=FieldFilter("timestamp", ">=", month_start))
+        .stream()
+    )
     total = success = errors = 0
     for doc in docs:
         d = doc.to_dict() or {}
@@ -237,26 +243,35 @@ def get_approvals_by_status(status: str | None = None, user_id: str | None = Non
 
 
 def approve_approval(doc_id: str, approver: str) -> dict | None:
-    """Mark as approved. Returns the full entry (for execution) or None."""
-    db  = get_db()
-    ref = db.collection(_APPROVALS).document(doc_id)
-    doc = ref.get()
-    if not doc.exists:
-        return None
-    d = doc.to_dict() or {}
-    if d.get("status") != "pending":
-        return None
-    ref.update({
-        "status":     "approved",
-        "resolvedAt": _now(),
-        "updatedAt":  _now(),
-        "resolvedBy": approver,
-    })
-    d["id"]             = doc_id
-    d["parsed_request"] = d.pop("parsedRequest", {})
-    d["risk_result"]    = d.pop("riskResult",    {})
-    d["user_role"]      = d.pop("userRole",      "")
-    return d
+    """Mark as approved atomically via Firestore transaction. Returns entry or None."""
+    from google.cloud import firestore as _firestore
+
+    db           = get_db()
+    approval_ref = db.collection(_APPROVALS).document(doc_id)
+    result: list[dict | None] = [None]
+
+    @_firestore.transactional
+    def _txn(transaction):
+        snap = approval_ref.get(transaction=transaction)
+        if not snap.exists:
+            return
+        d = snap.to_dict() or {}
+        if d.get("status") != "pending":
+            return
+        transaction.update(approval_ref, {
+            "status":     "approved",
+            "resolvedAt": _now(),
+            "updatedAt":  _now(),
+            "resolvedBy": approver,
+        })
+        d["id"]             = doc_id
+        d["parsed_request"] = d.pop("parsedRequest", {})
+        d["risk_result"]    = d.pop("riskResult",    {})
+        d["user_role"]      = d.pop("userRole",      "")
+        result[0]           = d
+
+    _txn(db.transaction())
+    return result[0]
 
 
 def reject_approval(doc_id: str, reason: str, approver: str) -> None:
@@ -299,6 +314,21 @@ def record_resource(
     return doc_ref.id
 
 
+def activate_pending_resource(name: str) -> None:
+    """Transition the first pending resource with the given name to active."""
+    db   = get_db()
+    docs = (
+        db.collection(_RESOURCES)
+        .where(filter=FieldFilter("resourceName", "==", name))
+        .where(filter=FieldFilter("status", "==", "pending"))
+        .limit(1)
+        .stream()
+    )
+    for doc in docs:
+        doc.reference.update({"status": "active"})
+        return
+
+
 def delete_resource_record(name: str) -> None:
     """Soft-delete: set status = 'deleted'."""
     db   = get_db()
@@ -319,9 +349,30 @@ def get_resources(status: str = "active", user_id: str | None = None) -> list[di
     )
     if user_id:
         query = query.where(filter=FieldFilter("userId", "==", user_id))
-    docs = query.stream()
     results = []
-    for doc in docs:
+    for doc in query.stream():
+        d = _doc_to_dict(doc)
+        d.setdefault("resource_type",   d.pop("resourceType",  ""))
+        d.setdefault("resource_name",   d.pop("resourceName",  ""))
+        d.setdefault("created_by_role", d.pop("createdByRole", ""))
+        d.setdefault("user_id",         d.pop("userId",        ""))
+        d.setdefault("user_email",      d.pop("userEmail",     ""))
+        results.append(d)
+    results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return results
+
+
+def get_resources_multi_status(statuses: list[str], user_id: str | None = None) -> list[dict]:
+    """Fetch resources with any of the given statuses in a single query using 'in' filter."""
+    from google.cloud.firestore_v1 import FieldFilter as FF
+    db    = get_db()
+    query = db.collection(_RESOURCES).where(
+        filter=FF("status", "in", statuses)
+    )
+    if user_id:
+        query = query.where(filter=FF("userId", "==", user_id))
+    results = []
+    for doc in query.stream():
         d = _doc_to_dict(doc)
         d.setdefault("resource_type",   d.pop("resourceType",  ""))
         d.setdefault("resource_name",   d.pop("resourceName",  ""))

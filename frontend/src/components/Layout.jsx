@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
-import { api } from '../api';
+import { useResources } from '../contexts/ResourceContext';
 
 const Icon = ({ d, size = 16, fill = 'none', stroke = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -61,33 +61,27 @@ function truncate(str, max = 18) {
 }
 
 export default function Layout({ children }) {
-  const { profile, getToken } = useAuth();
+  const { profile } = useAuth();
   const { sessions, activeId, selectSession, newSession, deleteSession } = useChat();
+  const { resources: allResources } = useResources();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const [collapsed,      setCollapsed]      = useState(false);
-  const [resourcesOpen,  setResourcesOpen]  = useState(true);
-  const [historyOpen,    setHistoryOpen]    = useState(true);
-  const [resourceCounts, setResourceCounts] = useState({});
+  const [collapsed,     setCollapsed]     = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(true);
+  const [historyOpen,   setHistoryOpen]   = useState(true);
 
   const isAdmin = profile?.role === 'admin';
   const initials = profile?.name?.charAt(0)?.toUpperCase() || profile?.email?.charAt(0)?.toUpperCase() || 'U';
   const username = profile?.name?.split(' ')[0] || profile?.email?.split('@')[0] || '';
 
-  const loadCounts = useCallback(async () => {
-    try {
-      const data = await api.get('/api/resources', getToken);
-      const resources = data.resources || [];
-      const counts = {};
-      RESOURCE_TYPES.forEach(rt => {
-        counts[rt.key] = resources.filter(r => r.resource_type === rt.type).length;
-      });
-      setResourceCounts(counts);
-    } catch { /* silent */ }
-  }, [getToken]);
-
-  useEffect(() => { loadCounts(); }, [loadCounts, pathname]);
+  const resourceCounts = useMemo(() => {
+    const counts = {};
+    RESOURCE_TYPES.forEach(rt => {
+      counts[rt.key] = allResources.filter(r => r.resource_type === rt.type).length;
+    });
+    return counts;
+  }, [allResources]);
 
   function handleNewChat() {
     newSession();

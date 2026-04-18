@@ -162,7 +162,7 @@ def _build_tags(user_role: str, intent: str, extra: dict = None) -> list:
 def _create_s3_bucket(params: dict, user_role: str, user_id: str | None = None) -> dict:
     from utils.aws_client import REGION as DEFAULT_REGION
     s3     = get_s3_client()
-    name   = params.get("bucket_name", f"coms-{int(time.time())}")
+    name   = params.get("bucket_name") or f"coms-{int(time.time())}"
     region = params.get("region") or DEFAULT_REGION or "ap-south-1"
 
     kwargs = {"Bucket": name}
@@ -188,8 +188,8 @@ def _create_s3_bucket(params: dict, user_role: str, user_id: str | None = None) 
                                            {"Team": params.get("team"),
                                             "Purpose": params.get("purpose")})},
         )
-    except Exception:
-        pass
+    except Exception as tag_err:
+        print(f"[WARN] S3 tagging failed for '{name}': {tag_err}")
 
     resource = {"type": "S3 Bucket", "name": name, "region": region,
                 "access": params.get("access_level", "private")}
@@ -221,8 +221,8 @@ def _delete_s3_bucket(params: dict) -> dict:
 def _launch_ec2_instance(params: dict, user_role: str, user_id: str | None = None) -> dict:
     from utils.aws_client import REGION as DEFAULT_REGION
     ec2    = get_ec2_client()
-    itype  = params.get("instance_type", "t2.micro")
-    count  = int(params.get("count", 1))
+    itype  = params.get("instance_type") or "t2.micro"
+    count  = int(params.get("count") or 1)
     region = params.get("region") or DEFAULT_REGION or "ap-south-1"
 
     tags     = _build_tags(user_role, "launch_ec2_instance",
@@ -274,8 +274,8 @@ _VALID_TRUST_SERVICES = {
 
 def _create_iam_role(params: dict, user_role: str, user_id: str | None = None) -> dict:
     iam           = get_iam_client()
-    name          = params.get("role_name", f"coms-role-{int(time.time())}")
-    trust_service = params.get("trust_policy_service", "ec2.amazonaws.com")
+    name          = params.get("role_name") or f"coms-role-{int(time.time())}"
+    trust_service = params.get("trust_policy_service") or "ec2.amazonaws.com"
 
     # Validate trust service to prevent malformed policy
     if trust_service not in _VALID_TRUST_SERVICES:
@@ -291,7 +291,7 @@ def _create_iam_role(params: dict, user_role: str, user_id: str | None = None) -
     resp = iam.create_role(
         RoleName=name,
         AssumeRolePolicyDocument=trust_policy,
-        Description=params.get("description", "Created by COMS"),
+        Description=params.get("description") or "Created by COMS",
         Tags=_build_tags(user_role, "create_iam_role"),
     )
     arn      = resp.get("Role", {}).get("Arn", "")
@@ -322,10 +322,10 @@ def _delete_iam_role(params: dict) -> dict:
 
 def _create_lambda_function(params: dict, user_role: str, user_id: str | None = None) -> dict:
     lmb         = get_lambda_client()
-    name        = params.get("function_name", f"coms-fn-{int(time.time())}")
-    runtime     = params.get("runtime", "python3.12")
-    handler     = params.get("handler", "index.handler")
-    description = params.get("description", "Created by COMS")
+    name        = params.get("function_name") or f"coms-fn-{int(time.time())}"
+    runtime     = params.get("runtime") or "python3.12"
+    handler     = params.get("handler") or "index.handler"
+    description = params.get("description") or "Created by COMS"
 
     # Use module-level constant — never accept role_arn from NLP output
     role_arn = _LAMBDA_ROLE_ARN
@@ -390,7 +390,7 @@ def _invoke_lambda_function(params: dict) -> dict:
 
 def _create_sns_topic(params: dict, user_role: str, user_id: str | None = None) -> dict:
     sns  = get_sns_client()
-    name = params.get("topic_name", f"coms-topic-{int(time.time())}")
+    name = params.get("topic_name") or f"coms-topic-{int(time.time())}"
     tags = _build_tags(user_role, "create_sns_topic")
     resp = sns.create_topic(Name=name, Tags=tags)
     arn  = resp.get("TopicArn", "")
@@ -431,7 +431,7 @@ def _delete_sns_topic(params: dict) -> dict:
 
 def _create_log_group(params: dict, user_role: str, user_id: str | None = None) -> dict:
     logs = get_logs_client()
-    name = params.get("log_group_name", f"/coms/{int(time.time())}")
+    name = params.get("log_group_name") or f"/coms/{int(time.time())}"
     tags = {t["Key"]: t["Value"] for t in _build_tags(user_role, "create_log_group")}
     logs.create_log_group(logGroupName=name, tags=tags)
     resource = {"type": "CloudWatch Log Group", "name": name}

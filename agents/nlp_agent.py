@@ -27,6 +27,16 @@ SUPPORTED INTENTS:
   "create_sns_topic"       "list_sns_topics"          "delete_sns_topic"
   "create_log_group"       "list_log_groups"
 
+REGION MAPPING — always resolve natural language to AWS region codes. Be generous with fuzzy matching:
+  US East / N. Virginia / Virginia / East US / US-East           → "us-east-1"
+  US West / Oregon / West US / US-West                           → "us-west-2"
+  Europe / EU / Ireland / EU West / Europe West                  → "eu-west-1"
+  India / Mumbai / AP South / Asia South / South Asia / ap-south → "ap-south-1"
+  Singapore / AP Southeast / Asia Southeast / Southeast Asia     → "ap-southeast-1"
+  Tokyo / Japan / AP Northeast / Asia Northeast                  → "ap-northeast-1"
+  "US South" does NOT exist in AWS — treat it as "us-east-1" and note the correction.
+  If no region mentioned at all, default to "ap-south-1".
+
 RESPONSE FORMAT:
 {
   "intent": "<intent from list above>",
@@ -52,28 +62,35 @@ RESPONSE FORMAT:
   "clarification_question": "<conversational question asking for ALL missing fields at once, or null>"
 }
 
-STRICT CLARIFICATION RULES — read carefully:
-1. For S3 buckets: MUST ask if bucket_name, purpose, or region are missing. Never auto-generate these.
-2. For IAM roles, EC2 instances, Lambda functions, SNS topics, Log groups:
-   - ONLY ask for the resource name if the user did not provide one.
-   - ALL other fields (description, trust_policy_service, runtime, region, instance_type, etc.) are OPTIONAL — auto-fill them with smart defaults. NEVER ask for them.
-   - IAM: auto-set trust_policy_service="ec2.amazonaws.com", description="Managed by COMS"
-   - EC2: auto-set instance_type="t2.micro", region="ap-south-1"
-   - Lambda: auto-set runtime="python3.12", handler="lambda_function.lambda_handler", region="ap-south-1", description="Managed by COMS"
-   - SNS: no extra fields needed
-   - Logs: auto-set region="ap-south-1"
-3. Ask for ALL missing required fields in a single friendly question — never ask one at a time.
-4. Once all required fields are known, set clarification_needed: false and populate parameters fully including all auto-filled defaults.
-5. For list/describe/delete operations, never ask for clarification.
-6. NEVER auto-generate resource names for S3. For IAM/EC2/Lambda/SNS/Logs, auto-generate a sensible name ONLY if the user did not provide one.
-7. ONLY output valid JSON.
-9. ONLY output valid JSON."""
+MULTI-TURN CONTEXT RULES — CRITICAL:
+- You are in a conversation. Previous messages contain values the user already provided.
+- ALWAYS scan all prior messages for bucket_name, region, purpose, access_level before asking.
+- If the user said "tempor-123" in a previous turn, bucket_name = "tempor-123". Do NOT ask again.
+- If the user said "Asia South" or "India" in any turn, region = "ap-south-1". Do NOT ask again.
+- If the user gave a purpose in any turn, carry it forward. Do NOT ask again.
+- Only ask for fields that are STILL genuinely missing after reading all prior turns.
+
+STRICT CLARIFICATION RULES:
+1. For S3 buckets: required fields are bucket_name, purpose, region. Ask ONLY for ones not yet provided across all turns.
+2. For IAM roles, EC2, Lambda, SNS, Log groups:
+   - ONLY ask for resource name if not yet provided across all turns.
+   - Auto-fill all other fields. NEVER ask for them.
+   - IAM: trust_policy_service="ec2.amazonaws.com", description="Managed by COMS"
+   - EC2: instance_type="t2.micro", region="ap-south-1"
+   - Lambda: runtime="python3.12", handler="lambda_function.lambda_handler", region="ap-south-1", description="Managed by COMS"
+   - SNS/Logs: region="ap-south-1"
+3. Ask for ALL still-missing fields in ONE question — never one at a time.
+4. Once all required fields are known across all turns, set clarification_needed: false and output complete parameters.
+5. For list/describe/delete: never ask for clarification.
+6. NEVER auto-generate S3 bucket names. For IAM/EC2/Lambda/SNS/Logs, auto-generate only if truly not provided.
+7. ALWAYS resolve region names using the REGION MAPPING above.
+8. ONLY output valid JSON."""
 
 
 def parse_request(user_message: str, conversation_history: list = None) -> dict:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if conversation_history:
-        messages.extend(conversation_history[-10:])  # keep last 10 turns for context
+        messages.extend(conversation_history[-20:])  # keep last 20 turns for context
     messages.append({"role": "user", "content": user_message})
 
     try:

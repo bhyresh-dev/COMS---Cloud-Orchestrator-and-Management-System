@@ -55,6 +55,7 @@ from utils.firestore_db import (
     count_resources,
     delete_resource_record,
     record_resource,
+    get_resources_multi_status,
 )
 from utils.rate_limiter import check_rate_limit
 from agents.policy_engine import validate_request
@@ -85,7 +86,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[_CORS_ORIGIN],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -160,6 +161,8 @@ class NLPResponse(BaseModel):
     warnings: list = []
     approval_id: str | None = None
     risk_result: dict = {}
+    cost_estimate: dict | None = None
+    explain: list = []
     conversation_history: list = []
 
 
@@ -286,6 +289,8 @@ def nlp_process(body: NLPRequest, user: dict = Depends(get_current_user)):
         warnings=result.get("warnings", []),
         approval_id=str(result["approval_id"]) if result.get("approval_id") else None,
         risk_result=result.get("risk_result", {}),
+        cost_estimate=result.get("cost_estimate"),
+        explain=result.get("explain", []),
         conversation_history=updated_history,
     )
 
@@ -306,6 +311,9 @@ def list_buckets(user: dict = Depends(get_current_user)):
     return {"buckets": buckets, "count": len(buckets)}
 
 
+import re as _re
+_BUCKET_NAME_RE = _re.compile(r'^[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]$')
+
 @app.delete("/api/buckets/{bucket_name}", tags=["Buckets"])
 def delete_bucket(bucket_name: str, user: dict = Depends(get_current_user)):
     """
@@ -318,6 +326,9 @@ def delete_bucket(bucket_name: str, user: dict = Depends(get_current_user)):
     uid   = user["uid"]
     role  = user["role"]
     email = user["email"]
+
+    if not _BUCKET_NAME_RE.match(bucket_name):
+        raise HTTPException(status_code=400, detail="Invalid bucket name.")
 
     # Validate the bucket belongs to this user (unless admin)
     if role != "admin":
@@ -370,12 +381,13 @@ def delete_bucket(bucket_name: str, user: dict = Depends(get_current_user)):
 
 @app.get("/api/resources", tags=["Resources"])
 def list_resources(user: dict = Depends(get_current_user)):
-    """Return all active resources owned by the caller."""
+    """Return active + pending resources owned by the caller (single Firestore query)."""
     uid  = user["uid"]
     role = user["role"]
-    active  = get_resources(status="active",  user_id=None if role == "admin" else uid)
-    pending = get_resources(status="pending", user_id=None if role == "admin" else uid)
-    resources = active + pending
+    resources = get_resources_multi_status(
+        ["active", "pending"],
+        user_id=None if role == "admin" else uid,
+    )
     return {"resources": resources, "count": len(resources)}
 
 

@@ -52,6 +52,9 @@ export default function Dashboard() {
       const newHist = data.conversation_history || [];
       updateConvHistory(data.status === 'executed' ? [] : newHist, sid);
       appendMessage({ role: 'ai', text: data.message, status: data.status, data }, sid);
+      if (data.status === 'executed' || data.status === 'pending_approval') {
+        window.dispatchEvent(new CustomEvent('coms:resource-created'));
+      }
     } catch (err) {
       appendMessage({ role: 'ai', text: err.message || 'Something went wrong.', status: 'error', data: null }, sid);
       updateConvHistory([], sid);
@@ -153,6 +156,8 @@ export default function Dashboard() {
 }
 
 function ChatMessage({ msg }) {
+  const [showExplain, setShowExplain] = useState(false);
+
   if (msg.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -173,18 +178,28 @@ function ChatMessage({ msg }) {
   };
   const labels = {
     executed:             '✓ Executed',
-    clarification_needed: '? Needs clarification',
+    clarification_needed: '↩ Needs clarification',
     pending_approval:     '⏳ Pending approval',
     denied:               '✗ Denied',
     error:                '✗ Error',
   };
+
+  const explainStatusStyle = {
+    success: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    info:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    warning: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    denied:  'text-red-400 bg-red-500/10 border-red-500/20',
+    error:   'text-red-400 bg-red-500/10 border-red-500/20',
+  };
+
+  const explainIcon = { success: '✓', info: 'ℹ', warning: '⚠', denied: '✗', error: '✗' };
 
   return (
     <div className="flex items-start gap-3">
       <div className="w-7 h-7 rounded-full bg-violet-600/30 border border-violet-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
         <ZapIcon />
       </div>
-      <div className="flex-1 min-w-0 space-y-2">
+      <div className="flex-1 min-w-0 space-y-2.5">
         {status && (
           <p className={`text-[11px] font-semibold ${colors[status] || 'text-white/50'}`}>
             {labels[status] || status}
@@ -192,6 +207,39 @@ function ChatMessage({ msg }) {
         )}
         <p className="text-white/85 text-sm leading-relaxed">{msg.text}</p>
 
+        {/* ── Cost Estimate ─────────────────────────────── */}
+        {data?.cost_estimate && (
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-white/30 uppercase tracking-wider mb-0.5">Estimated Cost</p>
+              <p className="text-sm font-semibold text-white/85">
+                {data.cost_estimate.monthly_usd === 0
+                  ? 'Free'
+                  : data.cost_estimate.monthly_usd != null
+                    ? `~$${data.cost_estimate.monthly_usd.toFixed(2)} / month`
+                    : 'Calculating…'}
+                {data.cost_estimate.hourly_usd != null && (
+                  <span className="text-white/35 font-normal text-xs ml-2">(${data.cost_estimate.hourly_usd}/hr)</span>
+                )}
+              </p>
+              <p className="text-[11px] text-white/35 mt-0.5">{data.cost_estimate.basis}</p>
+            </div>
+            {data.cost_estimate.free_tier && (
+              <div className="flex-shrink-0 text-right">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400/80">
+                  Free Tier eligible
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Pending approval card ─────────────────────── */}
         {status === 'pending_approval' && data?.risk_result && (
           <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3 space-y-1.5">
             {data.risk_result.auto_applied && Object.keys(data.risk_result.auto_applied).length > 0 && (
@@ -212,12 +260,14 @@ function ChatMessage({ msg }) {
           </div>
         )}
 
+        {/* ── Violations ───────────────────────────────── */}
         {data?.violations?.length > 0 && (
           <div className="space-y-0.5">
             {data.violations.map((v, i) => <p key={i} className="text-red-400 text-xs">{v}</p>)}
           </div>
         )}
 
+        {/* ── Resource output ───────────────────────────── */}
         {data?.resource && Object.keys(data.resource).length > 0 && (
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 font-mono text-xs space-y-1">
             {Object.entries(data.resource).map(([k, v]) => (
@@ -226,8 +276,42 @@ function ChatMessage({ msg }) {
           </div>
         )}
 
+        {/* ── Explainability panel ─────────────────────── */}
+        {data?.explain?.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowExplain(v => !v)}
+              className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/55 transition-colors mt-1"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: showExplain ? 'rotate(180deg)' : '', transition: 'transform 0.15s' }}>
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+              {showExplain ? 'Hide' : 'Show'} decision chain
+            </button>
+
+            {showExplain && (
+              <div className="mt-2 space-y-1.5">
+                {data.explain.map((step, i) => (
+                  <div key={i} className={`flex gap-3 px-3 py-2.5 rounded-xl border text-xs ${explainStatusStyle[step.status] || explainStatusStyle.info}`}>
+                    <span className="flex-shrink-0 font-bold mt-0.5">{explainIcon[step.status] || 'ℹ'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold opacity-60 text-[10px] uppercase tracking-wider">{step.agent}</span>
+                      </div>
+                      <p className="font-medium leading-snug">{step.decision}</p>
+                      {step.detail && <p className="opacity-60 text-[11px] mt-0.5 leading-snug">{step.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Pipeline stages ───────────────────────────── */}
         {data?.pipeline_stages?.length > 0 && (
-          <div className="pt-1 border-t border-white/[0.06] space-y-1">
+          <div className="pt-1.5 border-t border-white/[0.06] space-y-1">
             {data.pipeline_stages.map((s, i) => (
               <div key={i} className="flex items-center gap-2 text-[11px]">
                 <span className={s.status === 'success' || s.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}>
@@ -237,6 +321,9 @@ function ChatMessage({ msg }) {
                 <span className="text-white/25">{s.time_seconds}s</span>
               </div>
             ))}
+            {data.total_time_seconds > 0 && (
+              <p className="text-[10px] text-white/20 pt-0.5">Total: {data.total_time_seconds}s</p>
+            )}
           </div>
         )}
       </div>

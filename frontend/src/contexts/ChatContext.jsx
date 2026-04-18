@@ -8,8 +8,16 @@ function loadSessions() {
   catch { return []; }
 }
 
+const MAX_SESSIONS = 30;
+const MAX_MESSAGES_PER_SESSION = 100;
+
 function saveSessions(sessions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  const pruned = sessions.slice(0, MAX_SESSIONS).map(s => ({
+    ...s,
+    messages:    (s.messages    || []).slice(-MAX_MESSAGES_PER_SESSION),
+    convHistory: (s.convHistory || []).slice(-40),
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
 }
 
 const ChatContext = createContext(null);
@@ -71,13 +79,11 @@ export function ChatProvider({ children }) {
     setSessions(prev => {
       const updated = prev.filter(s => s.id !== id);
       saveSessions(updated);
+      if (activeId === id) {
+        setActiveId(updated.length > 0 ? updated[0].id : null);
+      }
       return updated;
     });
-    if (activeId === id) {
-      const remaining = sessions.filter(s => s.id !== id);
-      if (remaining.length > 0) setActiveId(remaining[0].id);
-      else setActiveId(null);
-    }
   }
 
   const appendMessage = useCallback((msg, id) => {

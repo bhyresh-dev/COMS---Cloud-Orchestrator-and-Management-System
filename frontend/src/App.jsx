@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
+import { ResourceProvider } from './contexts/ResourceContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login          from './pages/Login';
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ChatProvider>
+      <ResourceProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -87,6 +89,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      </ResourceProvider>
       </ChatProvider>
     </AuthProvider>
   );
