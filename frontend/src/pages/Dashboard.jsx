@@ -67,7 +67,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#080b14]">
+    <div className="flex flex-col h-full bg-transparent">
 
       {/* ── Chat history ─────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
@@ -79,13 +79,13 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-white tracking-tight text-center mb-2">
               Hi {firstName}, I'm COMS
             </h1>
-            <p className="text-white/55 text-base text-center max-w-md mb-10">
+            <p className="text-[#9b8ec4] text-[17px] text-center max-w-md mb-10">
               Your AI cloud orchestrator. Tell me what to provision and I'll handle the rest.
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-lg mb-10">
               {SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => handleSubmit(s)}
-                  className="text-left px-4 py-3 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.09] hover:border-white/[0.14] rounded-xl text-sm text-white/65 hover:text-white/90 transition-all">
+                  className="text-left px-4 py-3 bg-white/[0.07] hover:bg-white/[0.12] backdrop-blur-sm border border-white/[0.12] hover:border-violet-400/30 rounded-xl text-sm text-[#9b8ec4] hover:text-[#f0eeff] transition-all">
                   {s}
                 </button>
               ))}
@@ -114,7 +114,7 @@ export default function Dashboard() {
       {/* ── Input bar ────────────────────────────────────────── */}
       <div className="flex-shrink-0 px-6 pb-6 pt-2">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-[#161926]/90 backdrop-blur-md border border-white/[0.13] rounded-2xl px-4 pt-3 pb-2.5 shadow-2xl shadow-black/50">
+          <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/[0.18] rounded-2xl px-4 pt-3 pb-2.5 shadow-2xl shadow-black/30 ring-1 ring-inset ring-white/[0.06]">
             <textarea
               ref={textareaRef}
               value={message}
@@ -122,7 +122,7 @@ export default function Dashboard() {
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
               rows={1}
               placeholder={convHistory.length > 0 ? 'Reply to COMS...' : 'Ask COMS to provision a resource...'}
-              className="w-full bg-transparent text-white/90 placeholder-white/35 outline-none text-[15px] leading-relaxed resize-none"
+              className="w-full bg-transparent text-[#f0eeff] placeholder-[#6b5fa0] outline-none text-[16px] leading-relaxed resize-none"
               style={{ minHeight: '28px', maxHeight: '120px' }}
               onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
             />
@@ -148,7 +148,7 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-          <p className="text-center text-white/25 text-[11px] mt-2">COMS can make mistakes. Verify important actions.</p>
+          <p className="text-center text-[#6b5fa0] text-[11px] mt-2">COMS can make mistakes. Verify important actions.</p>
         </div>
       </div>
     </div>
@@ -162,7 +162,7 @@ function ChatMessage({ msg }) {
     return (
       <div className="flex justify-end">
         <div className="max-w-[75%] bg-violet-600/20 border border-violet-500/25 rounded-2xl rounded-tr-sm px-4 py-3">
-          <p className="text-white/90 text-sm leading-relaxed">{msg.text}</p>
+          <p className="text-[#f0eeff] text-[15px] leading-relaxed">{msg.text}</p>
         </div>
       </div>
     );
@@ -205,7 +205,7 @@ function ChatMessage({ msg }) {
             {labels[status] || status}
           </p>
         )}
-        <p className="text-white/85 text-sm leading-relaxed">{msg.text}</p>
+        <p className="text-[#e8e0ff] text-[15px] leading-relaxed">{msg.text}</p>
 
         {/* ── Pending approval card ─────────────────────── */}
         {status === 'pending_approval' && data?.risk_result && (

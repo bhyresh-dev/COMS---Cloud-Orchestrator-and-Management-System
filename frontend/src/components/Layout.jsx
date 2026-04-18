@@ -40,11 +40,11 @@ function NavItem({ icon, label, to, onClick }) {
   const active = to && (pathname === to || pathname.startsWith(to + '/'));
   const cls = [
     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer select-none',
-    active ? 'bg-white/[0.08] text-white' : 'text-white/55 hover:bg-white/[0.05] hover:text-white/85',
+    active ? 'bg-white/[0.10] text-[#f0eeff]' : 'text-[#9b8ec4] hover:bg-white/[0.06] hover:text-[#c4b8f0]',
   ].join(' ');
   const content = (
     <>
-      <span className={active ? 'text-white/80' : 'text-white/40'}>{icon}</span>
+      <span className={active ? 'text-[#c4b8f0]' : 'text-[#6b5fa0]'}>{icon}</span>
       <span className="flex-1 font-medium">{label}</span>
     </>
   );
@@ -53,7 +53,7 @@ function NavItem({ icon, label, to, onClick }) {
 }
 
 function SectionLabel({ children }) {
-  return <p className="px-3 pt-4 pb-1 text-[11px] font-semibold text-white/30 uppercase tracking-widest">{children}</p>;
+  return <p className="px-3 pt-4 pb-1 text-[11px] font-semibold text-[#6b5fa0] uppercase tracking-widest">{children}</p>;
 }
 
 function truncate(str, max = 18) {
@@ -95,11 +95,11 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#080b14] overflow-hidden">
+    <div className="flex h-screen app-shell overflow-hidden">
 
       {/* ── Sidebar ──────────────────────────────────────────── */}
       <aside className={[
-        'flex-shrink-0 flex flex-col h-full bg-[#0d0f17] border-r border-white/[0.07] transition-all duration-200',
+        'flex-shrink-0 flex flex-col h-full bg-white/[0.04] backdrop-blur-xl border-r border-white/[0.10] transition-all duration-200',
         collapsed ? 'w-[56px]' : 'w-[240px]',
       ].join(' ')}>
 
@@ -110,13 +110,13 @@ export default function Layout({ children }) {
               <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-lg shadow-blue-900/40 group-hover:shadow-blue-700/50 transition-shadow">
                 <img src={logoImg} alt="COMS" className="w-full h-full object-cover scale-[1.45] object-center" />
               </div>
-              <span className="text-white font-semibold text-sm tracking-tight group-hover:text-white/85 transition-colors">COMS</span>
+              <span className="text-[#f0eeff] font-semibold text-sm tracking-tight group-hover:text-white transition-colors">COMS</span>
             </Link>
           )}
           {collapsed && (
             <div className="flex items-center justify-center w-full">
               <button onClick={() => setCollapsed(false)}
-                className="text-white/25 hover:text-white/60 transition-colors">
+                className="text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors">
                 <MenuIcon />
               </button>
             </div>
@@ -133,11 +133,11 @@ export default function Layout({ children }) {
         <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
           {collapsed ? (
             <>
-              <Link to="/dashboard" className="flex items-center justify-center py-2.5 text-white/40 hover:text-white/75 transition-colors"><HomeIcon /></Link>
-              {isAdmin && <Link to="/audit" className="flex items-center justify-center py-2.5 text-white/40 hover:text-white/75 transition-colors"><LogIcon /></Link>}
-              <Link to="/security"  className="flex items-center justify-center py-2.5 text-white/40 hover:text-white/75 transition-colors"><ShieldIcon /></Link>
-              <Link to="/approvals" className="flex items-center justify-center py-2.5 text-white/40 hover:text-white/75 transition-colors"><UserIcon /></Link>
-              {isAdmin && <Link to="/admin" className="flex items-center justify-center py-2.5 text-white/40 hover:text-white/75 transition-colors"><UsersIcon /></Link>}
+              <Link to="/dashboard" className="flex items-center justify-center py-2.5 text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors"><HomeIcon /></Link>
+              {isAdmin && <Link to="/audit" className="flex items-center justify-center py-2.5 text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors"><LogIcon /></Link>}
+              <Link to="/security"  className="flex items-center justify-center py-2.5 text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors"><ShieldIcon /></Link>
+              <Link to="/approvals" className="flex items-center justify-center py-2.5 text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors"><UserIcon /></Link>
+              {isAdmin && <Link to="/admin" className="flex items-center justify-center py-2.5 text-[#6b5fa0] hover:text-[#c4b8f0] transition-colors"><UsersIcon /></Link>}
             </>
           ) : (
             <>
@@ -152,16 +152,16 @@ export default function Layout({ children }) {
               <div className="flex items-center gap-1 mb-0.5">
                 <button
                   onClick={() => setHistoryOpen(o => !o)}
-                  className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/55 hover:bg-white/[0.05] hover:text-white/80 transition-colors"
+                  className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#9b8ec4] hover:bg-white/[0.06] hover:text-[#c4b8f0] transition-colors"
                 >
-                  <span className="text-white/35"><ChatIcon /></span>
+                  <span className="text-[#6b5fa0]"><ChatIcon /></span>
                   <span className="flex-1 font-medium text-left">Conversations</span>
-                  <span className="text-white/25 transition-transform duration-150" style={{ transform: historyOpen ? 'rotate(180deg)' : '' }}>
+                  <span className="text-[#6b5fa0] transition-transform duration-150" style={{ transform: historyOpen ? 'rotate(180deg)' : '' }}>
                     <ChevronDown />
                   </span>
                 </button>
                 <button onClick={handleNewChat} title="New chat"
-                  className="p-1.5 rounded-lg text-white/25 hover:text-white/65 hover:bg-white/[0.05] transition-colors flex-shrink-0">
+                  className="p-1.5 rounded-lg text-[#6b5fa0] hover:text-[#c4b8f0] hover:bg-white/[0.06] transition-colors flex-shrink-0">
                   <PlusIcon />
                 </button>
               </div>
@@ -169,7 +169,7 @@ export default function Layout({ children }) {
               {historyOpen && (
                 <div className="ml-3 pl-3 border-l border-white/[0.06] space-y-0.5 mt-0.5 max-h-48 overflow-y-auto">
                   {sessions.length === 0 && (
-                    <p className="text-[11px] text-white/25 px-2 py-2">No conversations yet.</p>
+                    <p className="text-[11px] text-[#6b5fa0] px-2 py-2">No conversations yet.</p>
                   )}
                   {sessions.map(s => {
                     const active = s.id === activeId && pathname === '/dashboard';
@@ -177,14 +177,14 @@ export default function Layout({ children }) {
                       <div key={s.id}
                         className={[
                           'group flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors cursor-pointer',
-                          active ? 'bg-white/[0.08] text-white/85' : 'text-white/45 hover:bg-white/[0.04] hover:text-white/70',
+                          active ? 'bg-white/[0.10] text-[#f0eeff]' : 'text-[#9b8ec4] hover:bg-white/[0.06] hover:text-[#c4b8f0]',
                         ].join(' ')}
                         onClick={() => handleSelectSession(s.id)}
                       >
                         <span className="flex-1 text-xs truncate">{s.title || 'New chat'}</span>
                         <button
                           onClick={e => { e.stopPropagation(); deleteSession(s.id); }}
-                          className="opacity-0 group-hover:opacity-100 text-white/25 hover:text-red-400 transition-all flex-shrink-0 p-0.5"
+                          className="opacity-0 group-hover:opacity-100 text-[#6b5fa0] hover:text-red-400 transition-all flex-shrink-0 p-0.5"
                         >
                           <TrashIcon />
                         </button>
@@ -198,11 +198,11 @@ export default function Layout({ children }) {
               <SectionLabel>Resources</SectionLabel>
               <button
                 onClick={() => setResourcesOpen(o => !o)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/55 hover:bg-white/[0.05] hover:text-white/80 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#9b8ec4] hover:bg-white/[0.06] hover:text-[#c4b8f0] transition-colors"
               >
-                <span className="text-white/35"><LayersIcon /></span>
+                <span className="text-[#6b5fa0]"><LayersIcon /></span>
                 <span className="flex-1 font-medium text-left">All Resources</span>
-                <span className="text-white/25 transition-transform duration-150" style={{ transform: resourcesOpen ? 'rotate(180deg)' : '' }}>
+                <span className="text-[#6b5fa0] transition-transform duration-150" style={{ transform: resourcesOpen ? 'rotate(180deg)' : '' }}>
                   <ChevronDown />
                 </span>
               </button>
@@ -218,12 +218,12 @@ export default function Layout({ children }) {
                         to={`/resources/${rt.key}`}
                         className={[
                           'flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors',
-                          active ? 'bg-white/[0.08] text-white/90' : 'text-white/45 hover:bg-white/[0.04] hover:text-white/75',
+                          active ? 'bg-white/[0.10] text-[#f0eeff]' : 'text-[#9b8ec4] hover:bg-white/[0.06] hover:text-[#c4b8f0]',
                         ].join(' ')}
                       >
-                        <span className={active ? 'text-white/75' : 'text-white/30'}>{rt.icon}</span>
+                        <span className={active ? 'text-[#c4b8f0]' : 'text-[#6b5fa0]'}>{rt.icon}</span>
                         <span className="flex-1">{rt.label}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${count > 0 ? 'bg-white/[0.08] text-white/50' : 'text-white/20'}`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${count > 0 ? 'bg-white/[0.08] text-[#9b8ec4]' : 'text-[#6b5fa0]'}`}>
                           {count}
                         </span>
                       </Link>
@@ -244,8 +244,8 @@ export default function Layout({ children }) {
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/70 truncate font-medium">{truncate(username, 20)}</p>
-                <p className="text-[10px] text-white/35 capitalize">{profile?.role}</p>
+                <p className="text-xs text-[#c4b8f0] truncate font-medium">{truncate(username, 20)}</p>
+                <p className="text-[10px] text-[#6b5fa0] capitalize">{profile?.role}</p>
               </div>
               <ChevronRight />
             </div>

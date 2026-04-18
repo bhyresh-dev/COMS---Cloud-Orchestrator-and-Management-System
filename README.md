@@ -1,96 +1,337 @@
 # COMS — Cloud Orchestration and Management System
 
-> **AWS Hackathon Project** — Autonomous IT Operations Orchestrator
+> AI-powered natural language interface for provisioning and managing AWS cloud resources with enterprise-grade governance, approval workflows, and complete audit logging.
 
-COMS eliminates the "manual execution gap" in enterprise cloud provisioning. What previously required 150–200 personnel to validate and execute is now handled autonomously in seconds — a Master Agent orchestrates NLP parsing, policy enforcement, risk classification, and AWS execution, with human approval required only for high-risk operations.
+🌐 **Live Demo**: [https://coas.onrender.com](https://coas.onrender.com)
 
 ---
 
 ## The Problem
 
-Standard cloud resource requests (S3 buckets, IAM roles, EC2 instances) in enterprise environments pass through 150–200 people for validation and approval, taking days or weeks. The actual AWS provisioning takes 3 seconds. COMS eliminates the wait.
+Cloud provisioning today requires developers to know CLI syntax, navigate AWS consoles, and manually enforce governance policies. In teams, this creates bottlenecks — every resource request needs verification, approval, and documentation. Mistakes are costly, audit trails are weak, and onboarding new team members is slow.
 
-```
-Before COMS:  Request → 150-200 people → days → AWS (3 seconds)
-After COMS:   Request → AI pipeline → seconds → AWS (3 seconds)
-                                   ↑
-                         Admin approval only for high-risk
-```
+## The Solution
+
+COMS replaces the entire manual workflow with a conversational AI interface. You describe what you need in plain English. COMS parses your intent, validates it against your organization's policies, classifies the risk, and either provisions the resource instantly or escalates it for admin approval — all in under 2 seconds.
 
 ---
 
-## Architecture
+## How It Works
 
-### Multi-Agent Pipeline
+Every request flows through a 5-stage pipeline:
 
 ```
-User (natural language)
-        ↓
-   NLP Agent              — Groq LLM (Llama 3.1) parses intent + parameters
-        ↓
-  Policy Engine           — RBAC checks, resource limits, scope enforcement
-        ↓
- Risk Classifier          — Scores request; auto-fills safe defaults
-        ↓
-  Orchestrator            — Master Agent: decides execute or escalate
-        ↓
-   ┌────┴────┐
-Execute    Approval Queue
-(boto3)    (admin action)
-   ↓            ↓
-Firestore   Firestore
+User Message
+    ↓
+[1] NLP PARSING  →  Groq (Llama 3.1) converts plain English → structured intent JSON
+    ↓
+[2] CLARIFICATION  →  Ask for any missing required fields (bucket name, region, purpose)
+    ↓
+[3] POLICY VALIDATION  →  RBAC check, region whitelist, resource quotas, name validation
+    ↓
+[4] RISK CLASSIFICATION  →  Low risk → auto-execute | High risk → escalate to admin
+    ↓
+[5] AWS EXECUTION  →  boto3 calls, Firestore record, audit log entry
 ```
 
-### Agent Roles
-
-| Agent | File | Responsibility |
-|---|---|---|
-| Master Agent | `agents/orchestrator.py` | Coordinates full pipeline, decides execution path |
-| NLP Agent | `agents/nlp_agent.py` | LLM-based intent extraction (Groq + Gemini fallback) |
-| Policy Engine | `agents/policy_engine.py` | RBAC, resource limits, scope rules |
-| Risk Classifier | `agents/risk_classifier.py` | Risk scoring, auto-applies safe defaults |
-| Executor | `agents/executor.py` | Direct AWS API calls via boto3 |
+Total pipeline latency: **~1–2 seconds** (most time in Groq, not AWS)
 
 ---
 
 ## Features
 
-- **Conversational provisioning** — natural language input: *"Create an IAM role for EC2"* is parsed, validated, and executed without any form or ticket
-- **Multi-turn clarification** — for ambiguous requests (e.g. S3 bucket missing region), the AI asks follow-up questions in the same chat thread
-- **Risk-tiered execution** — low-risk requests auto-execute; high-risk (IAM, EC2, Lambda) route to admin approval queue
-- **Auto-filled defaults** — high-risk resource parameters are auto-populated with safe defaults rather than blocking the user with questions
-- **Chat history** — all conversations persist in localStorage, accessible from the sidebar like ChatGPT/Gemini; sessions can be renamed, revisited, or deleted
-- **Resource inventory** — provisioned resources (S3, IAM, EC2, Lambda, SNS, CloudWatch) visible in the sidebar with live counts; pending resources shown with amber badge before approval
-- **Admin approval workflow** — admins approve/reject with optional remarks; full request details visible in modal; filter by status (pending/approved/rejected)
-- **Role-based access control** — `user` and `admin` roles; admin emails configured in `config/admins.py`
-- **Append-only audit log** — admin-only; every action logged to Firestore; entries grouped by session with collapsible view; non-admins redirected
-- **Editable profile** — users can update their display name from the profile page; reflected instantly in sidebar and avatar
-- **Firebase Authentication** — Google Sign-In, server-side ID token verification on every request
+### AI & NLP
+- Natural language cloud provisioning — describe resources in plain English
+- Multi-turn conversation with clarification questions
+- Groq (Llama 3.1 8B) as primary LLM with Google Gemini 2.5 Flash as fallback
+- Intent normalization to handle LLM hallucinations
+- Region name fuzzy matching ("Mumbai" → `ap-south-1`, "Ireland" → `eu-west-1`)
+- Explainability panel showing every agent's decision with timing
 
-### Supported AWS Resources
+### Governance & Security
+- Role-based access control (user / developer / dev-lead / admin)
+- Region whitelisting (4 allowed AWS regions)
+- Per-user resource quotas enforced via live Firestore queries
+- Risk-based approval queue — high-risk ops require admin sign-off before execution
+- AI scope enforcement — NLP endpoint restricted to creation intents only
+- Rate limiting — 20 requests/minute per user (token bucket algorithm)
+- Immutable audit trail — append-only Firestore collection, every action logged
 
-| Resource | Intent | Risk Level |
-|---|---|---|
-| S3 Bucket | `create_s3_bucket` | Low → auto-execute |
-| IAM Role | `create_iam_role` | High → approval required |
-| EC2 Instance | `launch_ec2_instance` | High → approval required |
-| Lambda Function | `create_lambda_function` | High → approval required |
-| SNS Topic | `create_sns_topic` | Medium |
-| CloudWatch Log Group | `create_log_group` | Low |
+### AWS Resources
+19 operations across 6 AWS services — see full list below.
+
+### UI
+- Conversational chat interface with session history
+- Resource inventory grouped by service type
+- Admin dashboard with platform-wide stats
+- Approval queue with approve/reject workflow
+- Audit log with session grouping
+- User profile management
+
+---
+
+## Supported AWS Services
+
+| Service | Operations |
+|---------|-----------|
+| **S3** | Create bucket (public/private), list buckets, delete bucket |
+| **EC2** | Launch instance, describe instances, terminate instance |
+| **IAM** | Create role, list roles, delete role |
+| **Lambda** | Create function, list functions, delete function, invoke function |
+| **SNS** | Create topic, list topics, delete topic |
+| **CloudWatch Logs** | Create log group, list log groups |
+
+> **Risk tiers:** Read operations and creates (S3, Lambda, SNS, Logs) → auto-execute. IAM, EC2, and all deletes → admin approval required.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | FastAPI (Python 3.11+) |
-| AI / NLP | Groq API — Llama 3.1 8B Instant; Google Gemini fallback |
-| Cloud | AWS via boto3 (S3, IAM, EC2, Lambda, SNS, CloudWatch) |
-| Auth | Firebase Authentication (Google Sign-In) |
-| Database | Cloud Firestore (resources, approvals, audit log, users) |
-| Frontend | React 18 + Vite + Tailwind CSS |
-| Chat persistence | localStorage via ChatContext |
+### Backend
+| Component | Technology |
+|-----------|-----------|
+| API Framework | FastAPI 0.136.0 |
+| Server | Uvicorn 0.44.0 (ASGI) |
+| Database | Firebase Firestore |
+| Auth | Firebase Authentication |
+| AWS SDK | boto3 / botocore |
+| Validation | Pydantic 2.0+ |
+
+### AI / NLP
+| Component | Technology |
+|-----------|-----------|
+| Primary LLM | Groq — Llama 3.1 8B Instant (free, ~300ms) |
+| Fallback LLM | Google Gemini 2.5 Flash (free) |
+| Output | Structured JSON intent parsing |
+
+### Frontend
+| Component | Technology |
+|-----------|-----------|
+| Framework | React 18.3.0 |
+| Routing | React Router 6.26.0 |
+| Styling | Tailwind CSS 3.4.0 |
+| Build Tool | Vite 5.4.0 |
+| State | React Context API |
+| Auth | Firebase JS SDK 10.13.0 |
+
+### Deployment
+| Component | Technology |
+|-----------|-----------|
+| Container | Docker (multi-stage build) |
+| Platform | Render.com (free tier) |
+| Frontend | Embedded in FastAPI — single service, single URL |
+
+---
+
+## Pages & Features
+
+### Dashboard (`/dashboard`)
+The main interface. Type any cloud request and COMS handles the rest.
+- Chat interface with auto-expanding input
+- Quick suggestion cards for common requests
+- Per-message status: `✓ Executed`, `⏳ Pending approval`, `↩ Needs clarification`, `✗ Denied`
+- Pipeline stage breakdown with individual timings
+- Expandable decision chain explaining every agent's reasoning
+- Auto-applied defaults shown inline (e.g., `region: ap-south-1`)
+- Session history in sidebar
+
+### Approvals (`/approvals`)
+- **Users**: View history of own requests and their status
+- **Admins**: Full queue of pending requests with approve/reject actions
+- Filter by: all / pending / approved / rejected
+- Detail view with full parameters, risk tier, and violations
+
+### Audit Log (`/audit`) — Admin only
+- Immutable log of every action across the platform
+- Grouped by session (15-minute windows)
+- Columns: action, status, user, timestamp
+- Color-coded: green (success), red (denied/error)
+
+### Admin Dashboard (`/admin`) — Admin only
+- Platform stats: total buckets, users, admin count
+- Full bucket inventory with creator info
+- User list with per-user resource counts
+
+### Resources (`/resources/:type`)
+- Per-service views: S3, EC2, IAM, Lambda, SNS, Logs
+- Users see their own resources; admins see all
+- Inline delete with confirmation
+- Live counts updated in sidebar
+
+### Security (`/security`)
+- Documents the security architecture
+- RBAC matrix, AI scope enforcement, audit logging, policy limits
+
+### Profile (`/profile`)
+- Edit display name
+- View role, email, UID
+- Sign out
+
+---
+
+## RBAC Roles
+
+| Role | Services | Notes |
+|------|----------|-------|
+| `user` | S3, EC2, IAM, Lambda, SNS, Logs | Default for new accounts |
+| `developer` | S3, EC2, Lambda, SNS, Logs | IAM restricted |
+| `dev-lead` | S3, EC2, IAM, Lambda, SNS, Logs | Can create IAM roles |
+| `admin` | All | Full platform access, approves requests |
+
+Roles are stored in Firestore. Token claims are never trusted — Firestore is the source of truth.
+
+---
+
+## Resource Limits (per user)
+
+| Resource | Limit | AWS Free Tier |
+|----------|-------|---------------|
+| S3 Buckets | 10 | 5 GB storage |
+| EC2 Instances | 3 | 750 hrs/month t2.micro |
+| IAM Roles | 10 | Always free |
+| Lambda Functions | 20 | 1M requests/month |
+| SNS Topics | 10 | 1M publishes/month |
+| CloudWatch Log Groups | 20 | 5 GB ingested |
+
+Allowed regions: `ap-south-1` · `us-east-1` · `eu-west-1` · `us-west-2`
+
+---
+
+## Local Development
+
+### Prerequisites
+- Python 3.12+
+- Node.js 20+
+- A Firebase project with Firestore + Authentication enabled
+- AWS account (or LocalStack for local testing)
+- Groq API key (free at [console.groq.com](https://console.groq.com))
+
+### Backend Setup
+
+```bash
+# Clone and install
+git clone https://github.com/bhyresh-dev/COAS.git
+cd COAS
+pip install -r requirements.txt
+
+# Create .env
+cp .env.example .env
+# Fill in your keys (see Environment Variables section)
+
+# Run backend
+uvicorn server:app --reload --port 8000
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Create frontend/.env
+cp .env.example .env
+# Fill in your Firebase web config values
+
+npm install
+npm run dev   # Runs on http://localhost:5173
+```
+
+### LocalStack (optional — no real AWS needed)
+
+```bash
+docker run -d -p 4566:4566 localstack/localstack
+# In .env, set:
+# AWS_ENDPOINT_URL=http://localhost:4566
+```
+
+---
+
+## Environment Variables
+
+### Backend (`.env`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FIREBASE_PROJECT_ID` | ✅ | Firebase project ID |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | ✅ (local) | Path to service account JSON file |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | ✅ (Docker) | Full service account JSON as a single-line string |
+| `AWS_ACCESS_KEY_ID` | ✅ | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | ✅ | AWS secret key |
+| `AWS_DEFAULT_REGION` | ✅ | Default region (e.g. `ap-south-1`) |
+| `GROQ_API_KEY` | ✅ | Groq API key |
+| `GOOGLE_API_KEY` | ✅ | Google Gemini API key (fallback LLM) |
+| `LAMBDA_EXECUTION_ROLE_ARN` | ✅ | IAM role ARN for Lambda execution |
+| `CORS_ORIGIN` | ✅ (prod) | Frontend URL (e.g. `https://coas.onrender.com`) |
+| `APP_ENV` | ✅ (prod) | Set to `production` |
+| `AWS_ENDPOINT_URL` | ❌ | LocalStack URL (omit for real AWS) |
+
+### Frontend (`frontend/.env`)
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_FIREBASE_API_KEY` | Firebase web API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `VITE_API_BASE_URL` | Backend URL (leave empty if same origin) |
+
+---
+
+## Deployment (Render.com)
+
+The entire app (frontend + backend) deploys as a single Docker service.
+
+```bash
+# 1. Push to GitHub
+git push origin main
+
+# 2. Create Render Web Service
+#    - Runtime: Docker
+#    - Auto-Deploy: On Commit
+
+# 3. Add environment variables in Render dashboard
+#    (All variables from the Backend section above)
+
+# 4. After first deploy, set CORS_ORIGIN to your Render URL
+#    Then trigger a redeploy
+```
+
+### Docker Build (what Render runs)
+
+```dockerfile
+# Stage 1: Build React frontend (Node 20)
+FROM node:20-slim AS frontend-builder
+WORKDIR /app/frontend
+RUN npm ci && npm run build
+
+# Stage 2: Python runtime (3.12-slim)
+FROM python:3.12-slim
+COPY agents/ config/ utils/ server.py .
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+---
+
+## Firestore Collections
+
+| Collection | Contents |
+|------------|----------|
+| `users` | uid, email, name, role, created_at |
+| `resources` | resource_type, name, region, created_by, status (active/pending/deleted) |
+| `approvals` | parsed_request, risk_result, status, approver, reason, timestamp |
+| `audit_logs` | action, status, user_id, user_email, user_role, details, timestamp |
+
+---
+
+## Security Architecture
+
+- **Fail-closed**: Missing credentials → immediate `sys.exit()`, no silent fallback
+- **Token verification**: Firebase ID token verified on every request, revoked tokens detected
+- **AI scope enforcement**: NLP endpoint restricted to 6 creation intents; violations logged and rejected with 403
+- **Rate limiting**: Token bucket algorithm, 20 requests/minute per user
+- **Immutable audit trail**: Append-only Firestore collection, no delete endpoint exists
+- **Resource ownership**: Users can only delete their own resources
+- **Policy engine**: Live quota checks (no caching), region whitelist, instance type restrictions
+- **No hardcoded secrets**: All credentials via environment variables only
 
 ---
 
@@ -98,288 +339,79 @@ Firestore   Firestore
 
 ```
 COAS/
+├── server.py                  # FastAPI app, all API endpoints
 ├── agents/
-│   ├── orchestrator.py      # Master Agent — pipeline coordinator
-│   ├── nlp_agent.py         # LLM intent parser (Groq + Gemini fallback)
-│   ├── policy_engine.py     # RBAC + resource limit enforcement
-│   ├── risk_classifier.py   # Risk scoring + auto-defaults injection
-│   └── executor.py          # AWS boto3 execution layer
-├── config/
-│   ├── admins.py            # Admin email whitelist
-│   ├── policies.json        # Per-role resource limits and permissions
-│   ├── risk_rules.json      # Risk scoring rules per intent
-│   └── serviceAccountKey.json  # Firebase service account (not committed)
+│   ├── orchestrator.py        # Master pipeline coordinator
+│   ├── nlp_agent.py           # Groq/Gemini intent parser
+│   ├── executor.py            # AWS boto3 operations
+│   ├── policy_engine.py       # RBAC + quota validation
+│   └── risk_classifier.py     # Risk tier classification
 ├── utils/
-│   ├── firestore_db.py      # All Firestore read/write operations
-│   ├── auth.py              # Firebase token verification + role resolution
-│   ├── firebase_init.py     # Firebase Admin SDK initialization
-│   ├── aws_client.py        # boto3 client factory (supports LocalStack)
-│   └── rate_limiter.py      # Request rate limiting
+│   ├── firebase_init.py       # Firebase Admin SDK init
+│   ├── auth.py                # Token verification, role checks
+│   ├── firestore_db.py        # All Firestore operations
+│   ├── aws_client.py          # boto3 client factory
+│   └── rate_limiter.py        # Token bucket rate limiter
+├── config/
+│   ├── policies.json          # RBAC, region whitelist, quotas
+│   ├── risk_rules.json        # Low/high risk intent lists
+│   └── admins.py              # Admin email whitelist
 ├── frontend/
-│   └── src/
-│       ├── pages/
-│       │   ├── Dashboard.jsx       # Conversational chat interface
-│       │   ├── ResourcesPage.jsx   # Resource inventory + detail panel
-│       │   ├── Approvals.jsx       # Approval queue with status filters
-│       │   ├── AuditLog.jsx        # Admin-only session-grouped audit log
-│       │   ├── AdminDashboard.jsx  # User management (admin only)
-│       │   ├── Security.jsx        # Security documentation page
-│       │   └── Profile.jsx         # User profile + editable name + sign out
-│       ├── components/
-│       │   ├── Layout.jsx          # Collapsible sidebar with chat history + resources
-│       │   └── ProtectedRoute.jsx  # Auth guard for routes
-│       ├── contexts/
-│       │   ├── AuthContext.jsx     # Firebase auth state + profile
-│       │   └── ChatContext.jsx     # localStorage-backed chat session management
-│       ├── api.js                  # Fetch wrapper with Firebase auth headers
-│       └── firebase.js             # Firebase web SDK initialization
-├── server.py                # FastAPI app + all API routes
-├── requirements.txt         # Python dependencies
-└── tests/
-    ├── security_test.py     # Auth + RBAC security tests
-    └── test_suite.py        # Integration test suite
+│   ├── src/
+│   │   ├── pages/             # Login, Dashboard, Approvals, Audit, Admin, Profile, Resources, Security
+│   │   ├── components/        # Layout (sidebar + nav)
+│   │   ├── contexts/          # AuthContext, ChatContext, ResourceContext
+│   │   ├── api.js             # API client with auth headers
+│   │   └── firebase.js        # Firebase SDK init
+│   └── public/
+│       └── logo.png           # Favicon
+├── Dockerfile                 # Multi-stage build
+├── render.yaml                # Render deployment config
+└── requirements.txt           # Python dependencies
 ```
 
 ---
 
-## Environment Variables
+## Example Interactions
 
-### Backend (`.env` in project root)
+```
+User:  Create an S3 bucket for storing media files
 
-| Variable | Required | Description |
-|---|---|---|
-| `FIREBASE_PROJECT_ID` | Yes | Firebase project ID |
-| `FIREBASE_SERVICE_ACCOUNT_KEY` | Yes (dev) | Path to Firebase service account JSON |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Yes (prod) | Full service account JSON as string |
-| `GROQ_API_KEY` | Yes | Groq API key for Llama 3.1 8B Instant |
-| `GOOGLE_API_KEY` | No | Google Gemini API key (NLP fallback) |
-| `AWS_ACCESS_KEY_ID` | Yes | AWS access key |
-| `AWS_SECRET_ACCESS_KEY` | Yes | AWS secret key |
-| `AWS_DEFAULT_REGION` | Yes | Default AWS region (e.g. `ap-south-1`) |
-| `LAMBDA_EXECUTION_ROLE_ARN` | Yes | IAM role ARN for Lambda execution |
-| `CORS_ORIGIN` | Prod | Frontend domain for CORS |
-| `APP_ENV` | No | `development` (default) or `production` |
+COMS:  What would you like to name the bucket, and which region?
+       (Purpose: media files — noted ✓)
 
-### Frontend (`frontend/.env`)
+User:  Name it media-assets-2025, use Mumbai region
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_FIREBASE_API_KEY` | Yes | Firebase web app API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Yes | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Yes | Firebase project ID |
-| `VITE_API_BASE_URL` | Prod | Backend API URL (leave empty in dev) |
-
----
-
-## Local Development
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+
-- Firebase project with Authentication (Google provider) and Firestore enabled
-- AWS account (Free Tier sufficient for demo)
-
-### Backend
-
-```bash
-# Clone the repo
-git clone <repo-url>
-cd COAS
-
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Fill in Firebase, AWS, and Groq credentials in .env
-
-# Start API server
-uvicorn server:app --reload --port 8000
+COMS:  ✓ Executed
+       S3 bucket 'media-assets-2025' created in ap-south-1.
+       type: S3 Bucket | access: private | region: ap-south-1
 ```
 
-API docs available at `http://localhost:8000/docs`.
+```
+User:  Launch an EC2 instance for our backend API
 
-### Frontend
+COMS:  ⏳ Pending approval
+       This request requires admin review before execution.
+       Approval ID: apr_abc123
+       Risk: Tier 2 (High) — EC2 instance creation
+```
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# Fill in Firebase web app credentials
+```
+User:  Create an IAM role for Lambda
 
-npm run dev
-# Open http://localhost:5173
+COMS:  ↩ Needs clarification
+       What would you like to name the IAM role?
+
+User:  Name it lambda-execution-role
+
+COMS:  ⏳ Pending approval
+       IAM role creation requires admin approval.
 ```
 
 ---
 
-## AWS Setup
+## Built With ❤️ for the Hackathon
 
-### Required IAM Permissions
-
-Your AWS user/role needs these permissions for full functionality:
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "s3:CreateBucket", "s3:DeleteBucket", "s3:ListAllMyBuckets",
-    "iam:CreateRole", "iam:AttachRolePolicy", "iam:GetRole",
-    "ec2:RunInstances", "ec2:DescribeInstances",
-    "lambda:CreateFunction", "lambda:GetFunction",
-    "sns:CreateTopic", "sns:ListTopics",
-    "logs:CreateLogGroup", "logs:DescribeLogGroups"
-  ],
-  "Resource": "*"
-}
-```
-
-### Lambda Execution Role
-
-Create an IAM role named `coms-lambda-execution-role`:
-1. AWS Console → IAM → Roles → Create Role
-2. Trusted entity: **AWS Service → Lambda**
-3. Attach policy: `AWSLambdaBasicExecutionRole`
-4. Copy the ARN → set as `LAMBDA_EXECUTION_ROLE_ARN` in `.env`
-
----
-
-## API Reference
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/health` | None | Health check |
-| POST | `/api/auth/me` | user | Verify token, return profile |
-| PATCH | `/api/auth/me` | user | Update display name |
-| POST | `/api/nlp/process` | user | Full AI orchestration pipeline |
-| GET | `/api/resources` | user | List active + pending resources |
-| GET | `/api/buckets` | user | List S3 buckets |
-| DELETE | `/api/buckets/{name}` | user | Delete S3 bucket |
-| GET | `/api/approvals` | user | List approvals (filtered by status) |
-| POST | `/api/approvals/{id}/approve` | admin | Approve and execute |
-| POST | `/api/approvals/{id}/reject` | admin | Reject with reason |
-| GET | `/api/audit` | user | Audit log (own entries; admin sees all) |
-| GET | `/api/admin/users` | admin | All users with resource counts |
-| GET | `/api/admin/buckets` | admin | All buckets across all users |
-| GET | `/api/admin/audit` | admin | Full audit log with stats |
-| GET | `/api/admin/stats` | admin | Aggregate resource and audit stats |
-
----
-
-## Admin Setup
-
-Add admin email addresses to `config/admins.py`:
-
-```python
-ADMIN_EMAILS = [
-    "your-email@gmail.com",
-]
-```
-
-Users whose email matches this list are automatically assigned the `admin` role on first sign-in.
-
----
-
-## Security Architecture
-
-### Token Verification
-Every protected endpoint verifies `Authorization: Bearer <token>` using Firebase Admin SDK. Revoked and expired tokens return `401`. No anonymous access path exists.
-
-### Role Separation
-
-| Role | Can request via AI | Admin endpoints |
-|---|---|---|
-| `user` | All 6 resource types | 403 |
-| `admin` | All 6 resource types | Allowed |
-
-### AI Scope Enforcement
-After LLM parsing, the server validates the resolved intent against `_ALLOWED_INTENTS`. Any intent outside this set returns `403` and writes an `ai_scope_violation` to the audit log.
-
-### Audit Logging
-All mutating operations write to `audit_logs` in Firestore: action, status, user UID, email, role, and UTC timestamp. The collection is append-only — no delete endpoint exists for log entries.
-
-### Credentials
-No AWS credentials, Firebase keys, or API tokens are hardcoded. Missing required credentials cause immediate `sys.exit` with a descriptive message.
-
----
-
-## Deployment
-
-### Backend (Render / Railway / Fly.io)
-
-1. Set all environment variables in the platform dashboard
-2. Set `APP_ENV=production` and `CORS_ORIGIN=https://your-frontend.com`
-3. Use `FIREBASE_SERVICE_ACCOUNT_JSON` (full JSON as string) instead of file path
-4. Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT --workers 2`
-
-### Frontend (Vercel / Netlify)
-
-```bash
-cd frontend
-npm run build
-# Deploy frontend/dist/ as static site
-```
-
-Set `VITE_API_BASE_URL` to your deployed backend URL.
-
-### Docker
-
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Firebase Setup
-
-1. Create project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Authentication** → Google Sign-In provider
-3. Enable **Firestore Database** in production mode
-4. Add your domain to **Authorized domains** in Authentication settings
-5. Generate service account: Project Settings → Service accounts → Generate new private key
-6. Apply Firestore security rules (block all direct client access):
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-```
-
-All Firestore operations run server-side via Admin SDK, bypassing these rules.
-
----
-
-## Changelog
-
-### v1.1
-- Expanded AI scope from S3-only to all 6 AWS services (IAM, EC2, Lambda, SNS, CloudWatch)
-- Multi-turn conversational clarification for S3 requests with missing parameters
-- Auto-filled safe defaults for high-risk resources (no unnecessary prompting)
-- Chat sessions persisted in localStorage with ChatGPT-style sidebar history
-- Pending resources (awaiting approval) now appear in resource inventory with amber badge
-- Admin-only audit log with entries grouped by 15-minute session windows
-- Editable display name on profile page (`PATCH /api/auth/me`)
-- Sidebar: logo links to home, truncated username, admin-gated nav items, resource counts refresh on navigation
-- Removed legacy Streamlit layer (`app.py`, `styles.py`, `mock_data.py`, SQLite database, session shim)
-
-### v1.0
-- Initial release: FastAPI backend, React + Tailwind frontend, Firebase Auth, Firestore persistence
-- Multi-agent pipeline: NLP → Policy → Risk → Executor
-- S3 bucket creation with real AWS via boto3
-- RBAC with `user` and `admin` roles
-- Approval queue for high-risk operations
-- Full audit log
+**Team**: Bhyresh Dev  
+**Stack**: FastAPI · React · Groq · Firebase · AWS · Docker · Render  
+**License**: MIT

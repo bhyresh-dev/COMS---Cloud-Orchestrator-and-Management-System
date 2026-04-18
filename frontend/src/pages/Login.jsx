@@ -20,7 +20,7 @@ export default function Login() {
     <div className="min-h-screen hero-gradient flex items-center justify-center px-4 relative">
       {/* Centered card */}
       <div className="relative z-10 w-full max-w-sm">
-        <div className="bg-[#0d0f17]/90 backdrop-blur-xl border border-white/[0.10] rounded-2xl px-8 py-10 shadow-2xl shadow-black/60">
+        <div className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl px-8 py-10 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/[0.06]">
 
           {/* Logo */}
           <div className="flex items-center gap-2.5 mb-8">
@@ -30,10 +30,10 @@ export default function Login() {
             <span className="text-white font-semibold text-base tracking-tight">COMS</span>
           </div>
 
-          <h1 className="text-xl font-semibold text-white mb-1 tracking-tight">
+          <h1 className="text-xl font-semibold text-[#f0eeff] mb-1 tracking-tight">
             Welcome back
           </h1>
-          <p className="text-sm text-white/40 mb-8">
+          <p className="text-sm text-[#9b8ec4] mb-8">
             Sign in to access your cloud resources.
           </p>
 
@@ -46,14 +46,14 @@ export default function Login() {
           <button
             onClick={signIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white/[0.07] hover:bg-white/[0.12] border border-white/[0.10] hover:border-white/[0.18] rounded-xl text-sm font-medium text-white/85 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white/[0.08] hover:bg-white/[0.14] border border-white/[0.15] hover:border-violet-400/40 rounded-xl text-sm font-medium text-[#f0eeff] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <GoogleIcon />
             Continue with Google
           </button>
 
           <p className="mt-6 text-xs text-white/22 text-center">
-            Access is restricted to authorized accounts only.
+            <span className="text-[#6b5fa0]">Access is restricted to authorized accounts only.</span>
           </p>
         </div>
       </div>
