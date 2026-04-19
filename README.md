@@ -412,6 +412,10 @@ COMS:  ⏳ Pending approval
 
 ## Built With ❤️ for the Hackathon
 
-**Team**: Bhyresh Dev  
+**Team**: 
+Bhyresh B S (github:bhyresh-dev)
+K Sai Havish(github: ksaihavish)
+aryav agarwal(github: Aryav-Agarwal)
+veena
 **Stack**: FastAPI · React · Groq · Firebase · AWS · Docker · Render  
 **License**: MIT
